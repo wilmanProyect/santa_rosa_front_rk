@@ -1,0 +1,10 @@
+// API pública de la feature de autenticación. Otras partes de la app importan solo desde aquí.
+export { AuthProvider } from './context/AuthProvider'
+export { useAuth } from './hooks/useAuth'
+export { Can } from './components/Can'
+export { RequireAuth } from './guards/RequireAuth'
+export { RequirePermission } from './guards/RequirePermission'
+export { LoginPage } from './pages/LoginPage'
+export { ChangePasswordPage } from './pages/ChangePasswordPage'
+export { AUTH_ROUTES } from './routes'
+export type { SessionUser } from './types/auth.types'
