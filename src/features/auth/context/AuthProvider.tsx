@@ -83,6 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(toSessionUser(await authApi.me()))
       },
 
+      async refreshUser() {
+        if (status !== 'authenticated') return
+        try {
+          setUser(toSessionUser(await authApi.me()))
+        } catch {
+          // Si la sesión ya no es válida, el cliente HTTP la cierra por su cuenta.
+        }
+      },
+
       can(...permissions) {
         return !!user && permissions.every((p) => user.permissions.includes(p))
       },

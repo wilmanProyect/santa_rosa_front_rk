@@ -1,0 +1,38 @@
+/* Colores del logotipo según el manual de marca (págs. 10, 20 y 21). */
+.brand-logo {
+  display: block;
+  height: auto;
+}
+
+.brand-logo--color .brand-logo__frame,
+.brand-logo--color .brand-logo__cabana {
+  fill: var(--brand-green);
+}
+.brand-logo--color .brand-logo__shutters,
+.brand-logo--color .brand-logo__name {
+  fill: var(--brand-brown);
+}
+.brand-logo--color .brand-logo__animals {
+  fill: var(--brand-ochre);
+}
+
+/* Versión blanca: sobre verde corporativo o imágenes. */
+.brand-logo--white path {
+  fill: #ffffff;
+}
+
+/* Versión ocre: sobre café corporativo. */
+.brand-logo--ochre path {
+  fill: var(--brand-ochre);
+}
+
+/* En modo oscuro el logotipo a color pierde contraste: se usa la versión ocre. */
+@media (prefers-color-scheme: dark) {
+  .brand-logo--color .brand-logo__frame,
+  .brand-logo--color .brand-logo__cabana,
+  .brand-logo--color .brand-logo__shutters,
+  .brand-logo--color .brand-logo__name,
+  .brand-logo--color .brand-logo__animals {
+    fill: var(--brand-ochre);
+  }
+}

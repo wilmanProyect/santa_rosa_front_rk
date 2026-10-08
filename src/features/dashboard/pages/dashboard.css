@@ -1,30 +1,151 @@
+/* Bienvenida sobre café corporativo con el isotipo en ocre (manual, pág. 21). */
+.hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+  padding: 32px 36px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--brand-brown);
+  color: #f6ead8;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  right: -60px;
+  top: -40px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: rgba(210, 140, 43, 0.12);
+  pointer-events: none;
+}
+
+.hero__text {
+  position: relative;
+  z-index: 1;
+  max-width: 60ch;
+}
+
+.hero__eyebrow {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  color: var(--brand-ochre);
+}
+
+.hero h1 {
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.hero__text > p:last-child {
+  margin: 10px 0 0;
+  color: #e0cdb2;
+}
+
+.hero__mark {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 140px;
+}
+
+.section-title {
+  margin: 0 0 14px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
 .module-grid {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
 }
 
 .module-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   height: 100%;
-  padding: 16px 18px;
+  padding: 22px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   color: var(--color-text);
   text-decoration: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
 }
 
 .module-card:hover {
-  border-color: var(--color-primary);
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
 }
 
-.module-card span {
+.module-card__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 8px;
+  border-radius: 14px 14px 4px 4px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.module-card strong {
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: var(--color-heading);
+}
+
+.module-card__desc {
   color: var(--color-muted);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
+}
+
+.module-card__go {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-accent-text);
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 24px 20px;
+  }
+  .hero__mark {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .module-card {
+    transition: none;
+  }
+  .module-card:hover {
+    transform: none;
+  }
 }

@@ -1,0 +1,141 @@
+.perm-table {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.perm-table__head,
+.perm-table__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 260px 72px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.perm-table__head {
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.perm-table__head > span:first-child {
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-heading);
+}
+
+.perm-table__row {
+  font-size: 0.92rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.perm-table__row:last-child {
+  border-bottom: 0;
+}
+
+.perm-table__row.is-grant {
+  background: var(--color-success-soft);
+}
+
+.perm-table__row.is-deny {
+  background: var(--color-danger-soft);
+}
+
+.perm-table__col {
+  text-align: center;
+}
+
+.yes-no {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--color-border-strong);
+}
+
+.yes-no.is-yes {
+  color: var(--color-success);
+}
+
+.yes-no.is-strong.is-yes {
+  background: var(--color-success);
+  color: #ffffff;
+}
+
+/* Control segmentado Según rol / Otorgar / Denegar */
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-surface);
+}
+
+.segmented__option {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segmented__option:hover:not(:disabled) {
+  color: var(--color-heading);
+}
+
+.segmented__option:disabled {
+  cursor: not-allowed;
+}
+
+.segmented__option[aria-checked='true'] {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+.segmented__option--grant[aria-checked='true'] {
+  background: var(--color-success);
+  color: #ffffff;
+}
+
+.segmented__option--deny[aria-checked='true'] {
+  background: var(--color-danger);
+  color: #ffffff;
+}
+
+@media (max-width: 760px) {
+  .perm-table__head {
+    display: none;
+  }
+  .perm-table__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'name effective'
+      'override override';
+    row-gap: 8px;
+  }
+  .perm-table__row > span:first-child {
+    grid-area: name;
+  }
+  .perm-table__row > .perm-table__col:nth-child(2) {
+    display: none;
+  }
+  .perm-table__row > .perm-table__col--override {
+    grid-area: override;
+    text-align: left;
+  }
+  .perm-table__row > .perm-table__col:last-child {
+    grid-area: effective;
+  }
+}

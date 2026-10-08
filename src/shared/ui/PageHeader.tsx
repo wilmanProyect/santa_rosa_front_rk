@@ -1,15 +1,18 @@
 import type { ReactNode } from 'react'
 
 interface PageHeaderProps {
-  title: string
-  description?: string
+  title: ReactNode
+  description?: ReactNode
+  /** Texto pequeño sobre el título (sección o ruta de navegación). */
+  eyebrow?: ReactNode
   actions?: ReactNode
 }
 
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+export function PageHeader({ title, description, eyebrow, actions }: PageHeaderProps) {
   return (
     <header className="page-header">
-      <div>
+      <div className="page-header__text">
+        {eyebrow && <div className="page-header__eyebrow">{eyebrow}</div>}
         <h1>{title}</h1>
         {description && <p>{description}</p>}
       </div>

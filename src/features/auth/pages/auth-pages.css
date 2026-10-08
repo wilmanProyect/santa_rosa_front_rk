@@ -1,37 +1,136 @@
+/* Pantallas de acceso: panel de marca (verde) + formulario. */
 .auth-page {
   min-height: 100vh;
   display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  background: var(--color-bg);
+}
+
+.auth-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 48px 56px;
+  overflow: hidden;
+  background: var(--brand-green);
+  color: #f1ece2;
+}
+
+/* Arco decorativo, eco de las formas redondeadas del manual. */
+.auth-hero::before,
+.auth-hero::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px 999px 0 0;
+  pointer-events: none;
+}
+.auth-hero::before {
+  right: -80px;
+  bottom: -40px;
+  width: 340px;
+  height: 420px;
+  background: var(--brand-brown);
+  opacity: 0.55;
+}
+.auth-hero::after {
+  right: 120px;
+  bottom: -40px;
+  width: 220px;
+  height: 260px;
+  background: var(--brand-ochre);
+  opacity: 0.85;
+}
+
+.auth-hero__logo {
+  position: relative;
+  z-index: 1;
+  width: min(260px, 60%);
+}
+
+.auth-hero__text {
+  position: relative;
+  z-index: 1;
+  max-width: 30ch;
+}
+
+.auth-hero__eyebrow {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  color: var(--brand-ochre);
+}
+
+.auth-hero__text h2 {
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  font-weight: 900;
+  line-height: 1.1;
+  color: #ffffff;
+}
+
+.auth-hero__text p {
+  margin: 14px 0 0;
+  color: #c5d3c8;
+  font-size: 1.02rem;
+}
+
+.auth-main {
+  display: grid;
   place-items: center;
-  padding: 24px 16px;
+  padding: 40px 24px;
 }
 
 .auth-card {
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 28px 24px;
+  gap: 24px;
+}
+
+.auth-card__mobile-logo {
+  display: none;
+  width: 140px;
+  margin: 0 auto 8px;
 }
 
 .auth-card h1 {
-  font-size: 1.4rem;
-}
-
-.auth-card__brand {
-  margin: 0 0 4px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-primary);
+  font-size: 1.9rem;
+  font-weight: 900;
 }
 
 .auth-card__lead {
   margin: 8px 0 0;
   color: var(--color-muted);
-  font-size: 0.92rem;
+}
+
+.auth-card .btn {
+  width: 100%;
+  min-height: 46px;
+  font-size: 1rem;
+}
+
+.auth-card__footer {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--color-muted);
+}
+
+@media (max-width: 860px) {
+  .auth-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .auth-hero {
+    display: none;
+  }
+  .auth-card__mobile-logo {
+    display: block;
+  }
+  .auth-main {
+    align-items: start;
+    padding-top: 56px;
+  }
 }

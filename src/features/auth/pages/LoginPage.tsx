@@ -2,9 +2,9 @@ import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { Alert, Button, TextField } from '@/shared/ui'
+import { AuthLayout } from '../components/AuthLayout'
 import { useAuth } from '../hooks/useAuth'
 import { AUTH_ROUTES } from '../routes'
-import './auth-pages.css'
 
 export function LoginPage() {
   const { login, status } = useAuth()
@@ -36,38 +36,36 @@ export function LoginPage() {
   }
 
   return (
-    <main className="auth-page">
-      <section className="auth-card">
-        <header>
-          <p className="auth-card__brand">Santa Rosa</p>
-          <h1>Iniciar sesión</h1>
-        </header>
+    <AuthLayout>
+      <header>
+        <h1>Bienvenido</h1>
+        <p className="auth-card__lead">Ingrese con su usuario y contraseña.</p>
+      </header>
 
-        <form className="form" onSubmit={handleSubmit}>
-          {error && <Alert tone="error">{error}</Alert>}
-          <TextField
-            id="login-username"
-            label="Usuario"
-            autoComplete="username"
-            autoFocus
-            required
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <TextField
-            id="login-password"
-            label="Contraseña"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <Button type="submit" loading={submitting}>
-            Ingresar
-          </Button>
-        </form>
-      </section>
-    </main>
+      <form className="form" onSubmit={handleSubmit}>
+        {error && <Alert tone="error">{error}</Alert>}
+        <TextField
+          id="login-username"
+          label="Usuario"
+          autoComplete="username"
+          autoFocus
+          required
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <TextField
+          id="login-password"
+          label="Contraseña"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <Button type="submit" loading={submitting}>
+          Ingresar
+        </Button>
+      </form>
+    </AuthLayout>
   )
 }

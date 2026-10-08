@@ -75,6 +75,14 @@ features/users/
 
 Ejemplo: el cliente HTTP vive en `shared/` y no sabe nada de la sesión. La feature `auth` le registra cómo obtener y renovar el token con `configureHttpAuth()`.
 
+## Identidad visual
+
+La interfaz sigue el Manual de Marca de Cabaña Santa Rosa (en `docs/`):
+
+- **Colores:** verde `#123f22` (menú y acciones principales), ocre `#d28c2b` (acentos) y café `#683e10` (títulos y fondos destacados). Todos están como tokens en `shared/styles/global.css`, con variante para modo oscuro.
+- **Tipografía:** Sofia Sans para la interfaz y Righteous solo para palabras decorativas (Google Fonts, en `index.html`).
+- **Logotipo:** `<BrandLogo />` en `shared/ui/brand/`, vectorizado desde el manual, con las versiones aprobadas `color`, `white` (sobre verde) y `ochre` (sobre café).
+
 ## Autenticación y permisos
 
 - Los tokens se guardan en `localStorage`. Si una petición recibe `401`, el cliente HTTP renueva el access token con el refresh token y reintenta una vez; si no puede, cierra la sesión.
