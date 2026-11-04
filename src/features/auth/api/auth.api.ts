@@ -5,6 +5,7 @@ import type {
   LoginRequest,
   LoginResponse,
   MeResponse,
+  ProfileResponse,
 } from '../types/auth.types'
 
 export const authApi = {
@@ -16,7 +17,11 @@ export const authApi = {
 
   logout: () => http<void>('/auth/logout', { method: 'POST' }),
 
+  logoutAll: () => http<void>('/auth/logout-all', { method: 'POST' }),
+
   me: () => http<MeResponse>('/auth/me'),
+
+  profile: () => http<ProfileResponse>('/auth/me'),
 
   changePassword: (body: ChangePasswordRequest) =>
     http<AuthTokens>('/auth/me/password', { method: 'PUT', body }),

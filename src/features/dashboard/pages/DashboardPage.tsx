@@ -1,5 +1,7 @@
 import { Link } from 'react-router'
 import { useAuth } from '@/features/auth'
+import { RemindersCard } from '@/features/health'
+import { PERMISSIONS } from '@/shared/config/permissions'
 import type { NavItem } from '@/shared/types/navigation.types'
 import { BrandLogo, Icon } from '@/shared/ui'
 import './dashboard.css'
@@ -23,10 +25,16 @@ export function DashboardPage({ modules }: { modules: NavItem[] }) {
         <div className="hero__text">
           <p className="hero__eyebrow">{greeting()}</p>
           <h1>{firstName}, ¿qué desea gestionar hoy?</h1>
-          <p>Administre el personal de la cabaña, sus áreas de trabajo y lo que cada uno puede hacer.</p>
+          <p>Administre el ganado de la cabaña, su sanidad y el personal que trabaja en ella.</p>
         </div>
         <BrandLogo variant="isotype" tone="ochre" className="hero__mark" />
       </section>
+
+      {can(PERMISSIONS.ANIMALS_READ, PERMISSIONS.HEALTH_READ) && (
+        <div style={{ marginBottom: 28 }}>
+          <RemindersCard />
+        </div>
+      )}
 
       {available.length === 0 ? (
         <div className="card empty">

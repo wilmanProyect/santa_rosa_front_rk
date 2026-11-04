@@ -14,6 +14,13 @@ export function MainLayout() {
   // En escritorio el menú se puede contraer a solo íconos; se recuerda la preferencia.
   const [collapsed, setCollapsed] = useState(() => storage.get(COLLAPSED_KEY) === '1')
   const items = NAVIGATION.filter((item) => can(...item.permissions))
+  // Secciones del menú en el orden en que aparecen en NAVIGATION; se omiten las vacías.
+  const groups = items.reduce<{ title?: string; items: typeof items }[]>((acc, item) => {
+    const last = acc[acc.length - 1]
+    if (last && last.title === item.group) last.items.push(item)
+    else acc.push({ title: item.group, items: [item] })
+    return acc
+  }, [])
   // En móvil, el menú se cierra al elegir una opción.
   const closeMenu = () => setMenuOpen(false)
 
@@ -68,22 +75,26 @@ export function MainLayout() {
         </button>
 
         <nav aria-label="Principal" className="layout__nav">
-          <span className="layout__nav-title">Gestión</span>
-          <ul>
-            {items.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  end={item.to === '/'}
-                  onClick={closeMenu}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <Icon name={item.icon} />
-                  <span className="layout__label">{item.label}</span>
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+          {groups.map((group) => (
+            <div key={group.title ?? 'main'} className="layout__nav-group">
+              {group.title && <span className="layout__nav-title">{group.title}</span>}
+              <ul>
+                {group.items.map((item) => (
+                  <li key={item.to}>
+                    <NavLink
+                      to={item.to}
+                      end={item.to === '/'}
+                      onClick={closeMenu}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      <Icon name={item.icon} />
+                      <span className="layout__label">{item.label}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         <div className="layout__user">
@@ -94,6 +105,15 @@ export function MainLayout() {
               <span>@{user?.username}</span>
             </div>
           </div>
+          <NavLink
+            to={AUTH_ROUTES.profile}
+            className="layout__user-link"
+            onClick={closeMenu}
+            title={collapsed ? 'Mi perfil' : undefined}
+          >
+            <Icon name="user" size={16} />
+            <span className="layout__label">Mi perfil</span>
+          </NavLink>
           <NavLink
             to={AUTH_ROUTES.changePassword}
             className="layout__user-link"

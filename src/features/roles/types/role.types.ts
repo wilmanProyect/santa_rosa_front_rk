@@ -10,7 +10,7 @@ export interface Permission {
 export interface Role extends AuditFields {
   id: string
   name: string
-  description: string
+  description: string | null
   area: EntityRef | null
   isActive: boolean
   /** Rol Administrador: no se puede editar ni eliminar. */

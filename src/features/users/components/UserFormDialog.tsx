@@ -7,7 +7,12 @@ import { PERMISSIONS } from '@/shared/config/permissions'
 import { nullable, optional, todayIso } from '@/shared/lib/format'
 import { Alert, Button, Dialog, SelectField, TextField, useToast } from '@/shared/ui'
 import { useCreateUser, useUpdateUser } from '../hooks/useUsers'
-import { generateTemporaryPassword, PASSWORD_PATTERN, PASSWORD_RULES } from '../lib/password'
+import {
+  generateTemporaryPassword,
+  isValidPassword,
+  PASSWORD_PATTERN,
+  PASSWORD_RULES,
+} from '@/shared/lib/password'
 import type { UpdateUserRequest, UserDetail } from '../types/user.types'
 
 interface UserFormDialogProps {
@@ -127,6 +132,10 @@ function UserForm({ user, onDone, onCreated }: UserFormProps) {
           },
         },
       )
+      return
+    }
+    if (!isValidPassword(password)) {
+      toast.show(PASSWORD_RULES, 'error')
       return
     }
     create.mutate(

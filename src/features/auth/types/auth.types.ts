@@ -31,6 +31,23 @@ export interface MeResponse {
   effectivePermissions: string[]
 }
 
+/** GET /auth/me completo, para la pantalla "Mi perfil". */
+export interface ProfileResponse extends MeResponse {
+  firstName: string
+  paternalLastName: string
+  maternalLastName: string | null
+  email: string | null
+  ciNumber: string | null
+  phone: string | null
+  birthDate: string | null
+  position: string | null
+  area: { id: string; name: string } | null
+  roles: { id: string; name: string; isActive: boolean; isSystem: boolean }[]
+  lastLoginAt: string | null
+  passwordChangedAt: string | null
+  createdAt: string
+}
+
 export interface ChangePasswordRequest {
   currentPassword: string
   newPassword: string

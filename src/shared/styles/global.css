@@ -44,6 +44,9 @@
   --color-warning: #b03c0e;
   --color-warning-soft: #fbe6da;
 
+  /* Serie de gráficos (validada contra la superficie clara y oscura). */
+  --chart-series: #2f7d4c;
+
   --sidebar-bg: var(--brand-green);
   --sidebar-text: #e7efe8;
   --sidebar-muted: #9fb8a6;
@@ -103,6 +106,7 @@
     --color-warning: #f19a6c;
     --color-warning-soft: #3b2216;
 
+    --chart-series: #4f9a68;
     --sidebar-bg: #0c2615;
     --sidebar-border: rgba(255, 255, 255, 0.08);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -886,6 +890,16 @@ a.table__primary:hover {
   color: var(--color-heading);
   border-bottom-color: var(--color-accent);
 }
+.tabs__count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+  font-size: 0.74rem;
+  line-height: 1.6;
+  text-align: center;
+}
 
 /* Opciones seleccionables en tarjetas (roles) */
 .choice-grid {
@@ -929,4 +943,119 @@ a.table__primary:hover {
 }
 .empty .icon {
   color: var(--color-accent);
+}
+
+/* Utilidades de texto */
+.nowrap {
+  white-space: nowrap;
+}
+.mono {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+}
+.truncate {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.table tbody tr.row--error td {
+  background: var(--color-danger-soft);
+}
+
+.field__label-text {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--color-heading);
+}
+.flex-1 {
+  flex: 1 1 auto;
+}
+
+/* Recordatorios de la pantalla de inicio */
+.reminders__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.reminders__list li {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.reminders__list li:last-child {
+  border-bottom: 0;
+}
+.reminders__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+.reminders__list li.is-overdue .reminders__icon {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.reminders__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.reminders__date {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+/* Rango de fechas en una barra de filtros */
+.toolbar > .toolbar__range {
+  display: flex;
+  gap: 8px;
+  flex: 2 1 340px;
+  max-width: 460px;
+}
+.toolbar__range label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-muted);
+}
+
+/* Botón con una acción secundaria pegada (p. ej. Certificado + descargar) */
+.button-group {
+  display: inline-flex;
+}
+.button-group > .btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.button-group > .button-group__icon {
+  margin-left: -1px;
+  padding-left: 11px;
+  padding-right: 11px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }

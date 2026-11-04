@@ -3,7 +3,7 @@ import type { AuditFields } from '@/shared/types/api.types'
 export interface Area extends AuditFields {
   id: string
   name: string
-  description: string
+  description: string | null
   isActive: boolean
 }
 

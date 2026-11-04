@@ -2,10 +2,10 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { Alert, Button, TextField } from '@/shared/ui'
+import { isValidPassword, PASSWORD_RULES } from '@/shared/lib/password'
 import { AuthLayout } from '../components/AuthLayout'
 import { useAuth } from '../hooks/useAuth'
 
-const PASSWORD_RULES = 'Mínimo 8 caracteres, con al menos una mayúscula, una minúscula y un número.'
 
 export function ChangePasswordPage() {
   const { user, changePassword, logout } = useAuth()
@@ -20,6 +20,10 @@ export function ChangePasswordPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
+    if (!isValidPassword(newPassword)) {
+      setError(`La nueva contraseña no cumple la política: ${PASSWORD_RULES}`)
+      return
+    }
     if (newPassword !== confirmation) {
       setError('La confirmación no coincide con la nueva contraseña')
       return

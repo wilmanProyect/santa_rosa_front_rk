@@ -8,6 +8,7 @@ const REFRESH_KEY = 'sr.refreshToken'
 
 type Listener = () => void
 const expiredListeners = new Set<Listener>()
+const forbiddenListeners = new Set<Listener>()
 
 /** Guarda los tokens de la sesión y conecta el cliente HTTP con ellos. */
 export const tokenStore = {
@@ -23,6 +24,17 @@ export const tokenStore = {
   clear() {
     storage.remove(ACCESS_KEY)
     storage.remove(REFRESH_KEY)
+  },
+
+  /**
+   * Se ejecuta ante un 403. Puede significar que un administrador le restableció la
+   * contraseña a este usuario y ahora debe cambiarla.
+   */
+  onForbidden(listener: Listener): () => void {
+    forbiddenListeners.add(listener)
+    return () => {
+      forbiddenListeners.delete(listener)
+    }
   },
 
   /** Se ejecuta cuando la sesión expira y no se puede renovar. */
@@ -43,6 +55,10 @@ configureHttpAuth({
     const tokens = await authApi.refresh(refreshToken)
     tokenStore.save(tokens)
     return tokens.accessToken
+  },
+
+  onForbidden() {
+    forbiddenListeners.forEach((listener) => listener())
   },
 
   onSessionExpired() {

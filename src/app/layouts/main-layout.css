@@ -20,6 +20,8 @@
   gap: 28px;
   padding: 28px 16px 18px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
   background: var(--sidebar-bg);
   color: var(--sidebar-text);
 }
@@ -119,6 +121,12 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--sidebar-muted);
+}
+
+.layout__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .layout__nav ul {

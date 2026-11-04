@@ -26,3 +26,5 @@ dist-ssr
 # Variables de entorno locales
 .env
 .env.local
+
+docs/Manual-Cabaña-Santa-Rosa*.pdf

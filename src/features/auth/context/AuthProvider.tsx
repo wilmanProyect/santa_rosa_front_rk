@@ -49,6 +49,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Si el refresh falla en cualquier petición, se cierra la sesión.
   useEffect(() => tokenStore.onExpired(endSession), [endSession])
 
+  // Un 403 puede deberse a un cambio de contraseña pendiente (p. ej. un administrador la
+  // restableció mientras el usuario estaba conectado). Se relee /auth/me para saberlo;
+  // RequireAuth redirige a la pantalla de cambio si corresponde.
+  useEffect(() => {
+    let checking = false
+    return tokenStore.onForbidden(() => {
+      if (checking) return
+      checking = true
+      authApi
+        .me()
+        .then((me) => {
+          if (me.mustChangePassword) setUser(toSessionUser(me))
+        })
+        .catch(() => {
+          // Si la sesión terminó, el cliente HTTP ya la cerró.
+        })
+        .finally(() => {
+          checking = false
+        })
+    })
+  }, [])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
@@ -72,6 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async logout() {
         try {
           await authApi.logout()
+        } finally {
+          endSession()
+        }
+      },
+
+      async logoutAll() {
+        try {
+          await authApi.logoutAll()
         } finally {
           endSession()
         }

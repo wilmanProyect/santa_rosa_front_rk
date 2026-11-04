@@ -9,6 +9,8 @@ export interface AuthContextValue {
   user: SessionUser | null
   login(credentials: LoginRequest): Promise<SessionUser>
   logout(): Promise<void>
+  /** Cierra la sesión en todos los dispositivos (incluido este). */
+  logoutAll(): Promise<void>
   changePassword(request: ChangePasswordRequest): Promise<void>
   /**
    * Vuelve a leer GET /auth/me. Llamar tras cambiar roles o permisos:

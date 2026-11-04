@@ -2,7 +2,12 @@ import { useState, type FormEvent } from 'react'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { Alert, Button, Dialog, TextField, useToast } from '@/shared/ui'
 import { useResetUserPassword } from '../hooks/useUsers'
-import { generateTemporaryPassword, PASSWORD_PATTERN, PASSWORD_RULES } from '../lib/password'
+import {
+  generateTemporaryPassword,
+  isValidPassword,
+  PASSWORD_PATTERN,
+  PASSWORD_RULES,
+} from '@/shared/lib/password'
 import type { UserDetail } from '../types/user.types'
 
 interface ResetPasswordDialogProps {
@@ -33,6 +38,10 @@ function ResetForm({ user, onDone }: { user: UserDetail; onDone(): void }) {
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    if (!isValidPassword(password)) {
+      toast.show(PASSWORD_RULES, 'error')
+      return
+    }
     mutation.mutate(
       { id: user.id, newPassword: password },
       {

@@ -1,0 +1,12 @@
+// API pública de la feature de animales (incluye catálogos de razas/colores y fotos).
+export { AnimalsPage } from './pages/AnimalsPage'
+export { AnimalDetailPage, type AnimalExtraTab } from './pages/AnimalDetailPage'
+export { WeighingBatchPage } from './pages/WeighingBatchPage'
+export { AnimalFormPage } from './pages/AnimalFormPage'
+export { CatalogsPage } from './pages/CatalogsPage'
+export { ANIMALS_ROUTES } from './routes'
+export { ParentPicker as AnimalPicker } from './components/ParentPicker'
+export { animalLabel } from './lib/animal-label'
+export { useAnimal, useAnimals, animalsKeys } from './hooks/useAnimals'
+export { animalsApi, catalogsApi, photosApi, weighingsApi } from './api/animals.api'
+export type * from './types/animal.types'

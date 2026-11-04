@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { LoginHistoryTable } from '@/features/audit'
 import { useAuth } from '@/features/auth'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { PERMISSIONS } from '@/shared/config/permissions'
@@ -9,9 +10,11 @@ import {
   Badge,
   Button,
   ConfirmDialog,
+  DataItem,
   Icon,
   PageHeader,
   Spinner,
+  Tabs,
   useToast,
   type IconName,
 } from '@/shared/ui'
@@ -25,7 +28,7 @@ import { useDeleteUser, useUser } from '../hooks/useUsers'
 import { USERS_ROUTES } from '../routes'
 import { INACTIVE_REASON_LABELS, type UserDetail } from '../types/user.types'
 
-type Tab = 'info' | 'roles' | 'permisos'
+type Tab = 'info' | 'roles' | 'permisos' | 'accesos'
 type OpenDialog = 'edit' | 'status' | 'password' | 'delete' | null
 
 export function UserDetailPage() {
@@ -71,7 +74,9 @@ function UserDetailView({ user }: { user: UserDetail }) {
     { id: 'info', label: 'Información', icon: 'users', visible: true },
     { id: 'roles', label: 'Roles', icon: 'shield', visible: canSeeRoles },
     { id: 'permisos', label: 'Permisos', icon: 'key', visible: canSeeRoles },
+    { id: 'accesos', label: 'Accesos', icon: 'activity', visible: can(PERMISSIONS.AUDIT_READ) },
   ]
+  const visibleTabs = tabs.filter((t) => t.visible)
   const tab: Tab = tabs.find((t) => t.id === requestedTab && t.visible)?.id ?? 'info'
   const setTab = (next: Tab) =>
     setSearchParams(next === 'info' ? {} : { tab: next }, { replace: true })
@@ -135,28 +140,14 @@ function UserDetailView({ user }: { user: UserDetail }) {
         }
       />
 
-      {tabs.filter((t) => t.visible).length > 1 && (
-        <div className="tabs" role="tablist">
-          {tabs
-            .filter((t) => t.visible)
-            .map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === t.id}
-                onClick={() => setTab(t.id)}
-              >
-                <Icon name={t.icon} size={16} />
-                {t.label}
-              </button>
-            ))}
-        </div>
+      {visibleTabs.length > 1 && (
+        <Tabs tabs={visibleTabs} value={tab} onChange={setTab} label="Secciones del usuario" />
       )}
 
       {tab === 'info' && <UserInfo user={user} locked={locked} />}
       {tab === 'roles' && <UserRolesPanel key={user.updatedAt} user={user} />}
       {tab === 'permisos' && <UserPermissionsPanel key={user.updatedAt} user={user} />}
+      {tab === 'accesos' && <LoginHistoryTable userId={user.id} />}
 
       <UserFormDialog open={dialog === 'edit'} user={user} onClose={() => setDialog(null)} />
       <ChangeStatusDialog open={dialog === 'status'} user={user} onClose={() => setDialog(null)} />
@@ -215,13 +206,13 @@ function UserInfo({ user, locked }: { user: UserDetail; locked: boolean }) {
         </header>
         <div className="card__body">
           <dl className="data-list">
-            <Item label="Nombre(s)" value={user.firstName} />
-            <Item label="Apellido paterno" value={user.paternalLastName} />
-            <Item label="Apellido materno" value={user.maternalLastName} />
-            <Item label="Número de CI" value={user.ciNumber} />
-            <Item label="Fecha de nacimiento" value={formatDate(user.birthDate)} />
-            <Item label="Teléfono" value={user.phone} />
-            <Item label="Correo electrónico" value={user.email} />
+            <DataItem label="Nombre(s)" value={user.firstName} />
+            <DataItem label="Apellido paterno" value={user.paternalLastName} />
+            <DataItem label="Apellido materno" value={user.maternalLastName} />
+            <DataItem label="Número de CI" value={user.ciNumber} />
+            <DataItem label="Fecha de nacimiento" value={formatDate(user.birthDate)} />
+            <DataItem label="Teléfono" value={user.phone} />
+            <DataItem label="Correo electrónico" value={user.email} />
           </dl>
         </div>
       </section>
@@ -232,10 +223,10 @@ function UserInfo({ user, locked }: { user: UserDetail; locked: boolean }) {
         </header>
         <div className="card__body">
           <dl className="data-list">
-            <Item label="Área" value={user.area?.name} />
-            <Item label="Cargo" value={user.position} />
-            <Item label="Usuario" value={`@${user.username}`} />
-            <Item
+            <DataItem label="Área" value={user.area?.name} />
+            <DataItem label="Cargo" value={user.position} />
+            <DataItem label="Usuario" value={`@${user.username}`} />
+            <DataItem
               label="Roles"
               value={
                 user.roles.length > 0 ? (
@@ -250,23 +241,13 @@ function UserInfo({ user, locked }: { user: UserDetail; locked: boolean }) {
                 ) : null
               }
             />
-            <Item label="Último ingreso" value={formatDateTime(user.lastLoginAt)} />
-            <Item label="Contraseña cambiada" value={formatDateTime(user.passwordChangedAt)} />
-            <Item label="Creado" value={formatDateTime(user.createdAt)} />
-            <Item label="Última modificación" value={formatDateTime(user.updatedAt)} />
+            <DataItem label="Último ingreso" value={formatDateTime(user.lastLoginAt)} />
+            <DataItem label="Contraseña cambiada" value={formatDateTime(user.passwordChangedAt)} />
+            <DataItem label="Creado" value={formatDateTime(user.createdAt)} />
+            <DataItem label="Última modificación" value={formatDateTime(user.updatedAt)} />
           </dl>
         </div>
       </section>
-    </div>
-  )
-}
-
-function Item({ label, value }: { label: string; value: ReactNode }) {
-  const empty = value === null || value === undefined || value === ''
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{empty ? <span className="muted">—</span> : value}</dd>
     </div>
   )
 }
