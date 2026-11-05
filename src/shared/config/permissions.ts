@@ -40,6 +40,7 @@ export const PERMISSIONS = {
   VETERINARY_PRODUCTS_MANAGE: 'veterinary-products:manage',
 
   AUDIT_READ: 'audit:read',
+  BACKUPS_CREATE: 'backups:create',
 } as const
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

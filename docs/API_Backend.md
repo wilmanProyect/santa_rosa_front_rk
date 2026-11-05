@@ -30,6 +30,7 @@ Salvo los marcados como **Público**, todos los endpoints exigen un access token
 - [Productos veterinarios](#productos-veterinarios)
 - [Registro sanitario](#registro-sanitario)
 - [Recordatorios](#recordatorios)
+- [Copias de seguridad](#copias-de-seguridad)
 - [Sistema](#sistema)
 - [Modelos de respuesta](#modelos-de-respuesta)
 - [Valores fijos](#valores-fijos)
@@ -152,6 +153,7 @@ Los define el sistema en [`permission-catalog.ts`](../src/modules/roles-permissi
 | `health:override-withdrawal` | Sanidad | Autorizar la faena de un animal en período de retiro |
 | `veterinary-products:manage` | Sanidad | Administrar el catálogo de productos veterinarios |
 | `audit:read` | Auditoría | Ver el historial de inicios de sesión |
+| `backups:create` | Sistema | Descargar una copia de seguridad completa (base de datos, fotos y archivos) |
 
 **Permisos efectivos** = permisos de los roles activos del usuario + permisos otorgados individualmente − permisos denegados individualmente. Una denegación gana sobre lo que digan los roles. El frontend puede usar `effectivePermissions` (o `user.permissions` en el login) para mostrar u ocultar opciones.
 
@@ -231,6 +233,7 @@ Los define el sistema en [`permission-catalog.ts`](../src/modules/roles-permissi
 | `PATCH` | [`/health-records/:id`](#get--patch--delete-health-recordsid) | `health:write` |
 | `DELETE` | [`/health-records/:id`](#get--patch--delete-health-recordsid) | `health:write` |
 | `GET` | [`/reminders`](#recordatorios) | `animals:read` + `health:read` |
+| `GET` | [`/backups/download`](#get-backupsdownload) | `backups:create` |
 | `GET` | [`/`](#get-) | Público |
 
 ---
@@ -842,7 +845,7 @@ Donante de semen (externo):
 
 | Campo | Tipo | Reglas |
 | --- | --- | --- |
-| `status` **\*** | enum | `ALIVE` \| `DEAD` \| `SOLD` \| `SLAUGHTERED` \| `GIFTED` \| `EXCHANGED`. |
+| `status` **\*** | enum | `ALIVE` \| `DEAD` \| `SOLD` \| `SLAUGHTERED` \| `GIFTED` \| `EXCHANGED` \| `LOST`. |
 | `date` | `YYYY-MM-DD` | **Obligatoria** si el estado no es `ALIVE`. No futura ni anterior al nacimiento o al ingreso. |
 | `reason` | string | Motivo o detalle (causa de muerte, comprador, etc.). Máx. 500. |
 | `overrideWithdrawal` | boolean | Faenar aunque el animal esté en [período de retiro](#período-de-retiro). Requiere el permiso `health:override-withdrawal`. |
@@ -905,16 +908,26 @@ curl -X PUT http://localhost:3000/animals/<id>/certificate-file \
 
 **Contenido del PDF:**
 
+Usa el diseño del "Registro genealógico y certificado de origen" de la cabaña (fondo, logo, lema, cabras, QR a la página informativa). Las imágenes están en `src/modules/animals/infrastructure/certificates/assets/`.
+
+**Página 1 — certificado:**
+
 | Sección | Datos |
 | --- | --- |
-| Encabezado | Nombre de la cabaña, número de certificado y fecha y hora de emisión. |
-| Identificación | Foto principal (si tiene), arete, nombre, especie, raza, sexo, color, categoría genética, fecha de nacimiento y edad, registro ABSID, código del certificado ABSID, registro externo. Si es [caso especial](#arete-y-registro-absid-caso-especial), un aviso con el motivo. |
-| Origen y estado | Origen de ingreso, fecha, cabaña de procedencia y estado. Si ya salió de la cabaña, también la fecha y el motivo. |
-| Genealogía | Tres generaciones: padre, madre y los cuatro abuelos, con raza, ABSID, nacimiento y categoría. Cantidad de crías registradas. |
+| I. Identificación del ejemplar | Nombre, registro ABSID (y código del certificado ABSID), raza, sexo, fecha de nacimiento y edad, color, categoría, arete, grado de pureza (según la categoría: G1 50 %, G2 75 %, G3 87,5 %, G4 93,75 %, PO 100 %), peso al nacer, peso actual (último pesaje), estado, fecha de registro (fecha de ingreso, o de nacimiento si nació en la cabaña) y código de la cabaña. |
+| II. Genealogía | Padre y madre: arete, nombre, ABSID, raza y sus propios padres (abuelos del animal). |
+| III. Criador y propietario | Criadores responsables, localidad, quién lo emitió, teléfono, fecha y hora de emisión y número de certificado. |
+| Firmas | Un bloque por criador responsable (hasta 3). |
+
+**Páginas siguientes — anexo con el historial:**
+
+| Sección | Datos |
+| --- | --- |
+| Origen y estado | Foto principal (si tiene), origen de ingreso, fecha, cabaña de procedencia, estado (si ya salió, fecha y motivo), registro externo y cantidad de crías. Si es [caso especial](#arete-y-registro-absid-caso-especial), un aviso con el motivo. |
 | Pesos | Al nacer, al destete y el último, más los 15 pesajes más recientes. |
 | Registro sanitario y de manejo | Aviso si hay un período de retiro de carne o leche vigente, más los 15 eventos más recientes (fecha, tipo, producto, dosis y vía, motivo). |
 | Observaciones | Las notas del animal. |
-| Pie de cada página | Quién lo emitió (nombre y usuario), fecha y hora, número de certificado y paginación. |
+| Pie | Quién lo emitió (nombre y usuario), fecha y hora, número de certificado y paginación. |
 
 **Número de certificado:** cada emisión genera uno nuevo, con el formato `SR-AAAAMMDD-XXXXXX` (fecha de emisión + 6 caracteres aleatorios). Va impreso en el PDF y en el header `X-Certificate-Number`. El certificado **no se guarda**: si se pide otra vez, sale con un número nuevo y los datos actualizados.
 
@@ -935,7 +948,16 @@ CORS expone `Content-Disposition` y `X-Certificate-Number`, así que el frontend
 | `403` | Falta el permiso `animals:issue-certificate`. |
 | `404` | El animal no existe o fue eliminado. |
 
-La fecha y hora de emisión se muestran en la zona horaria `FARM_TIME_ZONE` (por defecto `America/La_Paz`) y el nombre de la cabaña sale de `FARM_NAME` (por defecto "Cabaña Santa Rosa").
+La fecha y hora de emisión se muestran en la zona horaria `FARM_TIME_ZONE` (por defecto `America/La_Paz`) y los datos de la cabaña salen de estas variables:
+
+| Variable | Por defecto |
+| --- | --- |
+| `FARM_NAME` | Cabaña Santa Rosa |
+| `FARM_CODE` | 28-A |
+| `FARM_BREEDERS` (separados por coma) | Ricardo Limpias Mateff, Katlyn Los |
+| `FARM_LOCALITY` | Portachuelo |
+| `FARM_PHONE` | 69405387 |
+| `FARM_REGION` | Santa Cruz - Bolivia |
 
 ---
 
@@ -1221,6 +1243,40 @@ Si el producto aplicado tiene días de retiro, el evento calcula `meatWithdrawal
   ]
 }
 ```
+
+---
+
+## Copias de seguridad
+
+### `GET /backups/download`
+
+**Permiso:** `backups:create` (el rol **Administrador** lo tiene). Descarga una **copia de seguridad completa** del sistema en un archivo `.tar.gz`:
+
+| Contenido | Detalle |
+| --- | --- |
+| Base de datos | Volcado completo de PostgreSQL: animales, pesajes, registro sanitario, usuarios, roles, catálogos, etc. |
+| Archivos | Todo el almacenamiento (Garage): fotos de animales, miniaturas y certificados ABSID escaneados. |
+| Manifiesto | Fecha, usuario que la generó, versión de la base, y tamaño y SHA-256 de cada archivo, para verificar el respaldo antes de restaurarlo. |
+
+**Respuesta `200`:** el archivo, con estas cabeceras:
+
+| Cabecera | Valor |
+| --- | --- |
+| `Content-Type` | `application/gzip` |
+| `Content-Disposition` | `attachment; filename="santa-rosa-respaldo-AAAAMMDD-HHMMSS.tar.gz"` (fecha y hora de la cabaña, `FARM_TIME_ZONE`) |
+| `Cache-Control` | `no-store` |
+
+No se envía `Content-Length`: el archivo se genera mientras se descarga. La base se vuelca **antes** de empezar a enviar, así que un error de la base responde `500` en vez de una descarga cortada. Si falla un archivo a mitad de camino, la conexión se corta y el navegador marca la descarga como fallida: no queda un respaldo roto con apariencia de bueno.
+
+**Errores:**
+
+| Código | Cuándo |
+| --- | --- |
+| `401` | Sin token o token vencido. |
+| `403` | Falta el permiso `backups:create`. |
+| `409` | Ya se está generando otra copia de seguridad. Reintente cuando termine. |
+
+**Restaurar** no se hace desde la API, a propósito: reemplaza todos los datos. Se hace por terminal en el servidor (`pnpm restore`, ver el README del backend). El archivo que descarga este endpoint sirve tal cual para restaurar.
 
 ---
 
@@ -1533,6 +1589,7 @@ AnimalResumen más estos campos:
 | `SLAUGHTERED` | `status` (animal) | Faenado |
 | `GIFTED` | `status` (animal) | Regalado |
 | `EXCHANGED` | `status` (animal) | Intercambiado por otro animal |
+| `LOST` | `status` (animal) | Perdido o extraviado |
 | `BORN_ON_FARM` | `entryOrigin` | Nacido en la cabaña |
 | `PURCHASE` | `entryOrigin` | Comprado a otra cabaña |
 | `DONATION` | `entryOrigin` | Recibido en donación |

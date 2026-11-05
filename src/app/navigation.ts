@@ -1,6 +1,7 @@
 import { ANIMALS_ROUTES } from '@/features/animals'
 import { AREAS_ROUTES } from '@/features/areas'
 import { AUDIT_ROUTES } from '@/features/audit'
+import { BACKUPS_ROUTES } from '@/features/backups'
 import { HEALTH_ROUTES } from '@/features/health'
 import { ROLES_ROUTES } from '@/features/roles'
 import { USERS_ROUTES } from '@/features/users'
@@ -81,5 +82,13 @@ export const NAVIGATION: NavItem[] = [
     icon: 'activity',
     group: 'Administración',
     permissions: [PERMISSIONS.AUDIT_READ],
+  },
+  {
+    to: BACKUPS_ROUTES.page,
+    label: 'Copias de seguridad',
+    description: 'Descargar una copia completa de los datos, fotos y archivos.',
+    icon: 'download',
+    group: 'Administración',
+    permissions: [PERMISSIONS.BACKUPS_CREATE],
   },
 ]

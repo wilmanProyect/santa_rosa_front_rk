@@ -23,6 +23,23 @@ Usuario inicial: `admin` / `Admin123` (pide cambiar la contraseña en el primer 
 | `pnpm lint` | Lint con oxlint |
 | `pnpm preview` | Sirve el build de producción |
 
+## Docker
+
+```bash
+# Primero levantar el backend (docker compose up -d en santa_rosa_backend)
+docker compose up -d --build   # http://localhost:8080
+```
+
+La imagen compila la app con Node y la sirve con nginx ([docker/nginx/default.conf.template](docker/nginx/default.conf.template)). nginx atiende las rutas de React Router y redirige `/api/...` al backend, igual que Vite en desarrollo, así que tampoco hace falta CORS.
+
+| Variable | Por defecto | Qué es |
+| --- | --- | --- |
+| `FRONTEND_PORT` | `8080` | Puerto del host donde se publica el frontend |
+| `BACKEND_URL` | `http://host.docker.internal:3000` | Backend al que nginx redirige `/api` (se lee al arrancar el contenedor) |
+| `VITE_API_URL` (build arg) | `/api` | URL de la API que usa el navegador; queda fija en el bundle al compilar |
+
+Para producción (VPS de HSWare, `cabañasantarosa.hswaretecnologia.com`), ver `docs/DEPLOY.md` en el repo del backend. Allí el frontend se publica en `127.0.0.1:8097` y el nginx del host atiende `/api`.
+
 ## Arquitectura: Screaming Architecture
 
 La estructura de carpetas "grita" de qué trata el sistema (usuarios, roles, áreas…), no qué framework usa. Cada dominio del negocio es una carpeta en `features/`, con todo lo que necesita adentro.

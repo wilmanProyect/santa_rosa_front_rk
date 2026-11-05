@@ -1,0 +1,24 @@
+# Frontend de Santa Rosa: React compilado, servido por nginx.
+# nginx redirige /api al backend, así el navegador no necesita CORS.
+#
+#   docker compose up -d --build
+#
+# Por defecto llega al backend por el puerto publicado en el host (3000), así que
+# primero hay que levantar el docker-compose del backend.
+name: santa_rosa_front
+
+services:
+  web:
+    build:
+      context: .
+      args:
+        VITE_API_URL: /api
+    image: santa_rosa_front:latest
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: ${BACKEND_URL:-http://host.docker.internal:3000}
+    extra_hosts:
+      # En Linux host.docker.internal no existe por defecto.
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
