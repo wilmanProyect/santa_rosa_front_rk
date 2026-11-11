@@ -1,3 +1,4 @@
+import type { PendingPregnancyCheck, UpcomingBirth } from '@/features/reproduction'
 import type { AuditFields, EntityRef, PaginationParams } from '@/shared/types/api.types'
 
 // ---------- Productos veterinarios ----------
@@ -260,4 +261,7 @@ export interface HealthDoseReminder {
 export interface Reminders {
   weighings: WeighingReminder[]
   healthDoses: HealthDoseReminder[]
+  /** Vacíos si el usuario no tiene reproduction:read. */
+  pregnancyChecks: PendingPregnancyCheck[]
+  upcomingBirths: UpcomingBirth[]
 }

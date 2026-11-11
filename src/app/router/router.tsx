@@ -24,6 +24,17 @@ import {
   RequirePermission,
 } from '@/features/auth'
 import { DashboardPage } from '@/features/dashboard'
+import {
+  BirthDetailPage,
+  BirthFormPage,
+  BirthsPage,
+  BreedingServiceDetailPage,
+  BreedingServiceFormPage,
+  BreedingServicesPage,
+  REPRODUCTION_ROUTES,
+  ReproductionStatsPage,
+} from '@/features/reproduction'
+import { ReviewsPage, REVIEWS_ROUTES } from '@/features/reviews'
 import { RoleEditorPage, RolesPage, ROLES_ROUTES } from '@/features/roles'
 import { UserDetailPage, UsersPage, USERS_ROUTES } from '@/features/users'
 import { PERMISSIONS } from '@/shared/config/permissions'
@@ -76,6 +87,30 @@ export const router = createBrowserRouter([
           {
             element: <RequirePermission permissions={[PERMISSIONS.HEALTH_WRITE]} />,
             children: [{ path: HEALTH_ROUTES.batch, element: <HealthBatchPage /> }],
+          },
+          {
+            element: <RequirePermission permissions={[PERMISSIONS.REPRODUCTION_WRITE]} />,
+            children: [{ path: REPRODUCTION_ROUTES.newService, element: <BreedingServiceFormPage /> }],
+          },
+          {
+            element: (
+              <RequirePermission permissions={[PERMISSIONS.REPRODUCTION_WRITE, PERMISSIONS.ANIMALS_CREATE]} />
+            ),
+            children: [{ path: REPRODUCTION_ROUTES.newBirth, element: <BirthFormPage /> }],
+          },
+          {
+            element: <RequirePermission permissions={[PERMISSIONS.REPRODUCTION_READ]} />,
+            children: [
+              { path: REPRODUCTION_ROUTES.services, element: <BreedingServicesPage /> },
+              { path: REPRODUCTION_ROUTES.serviceDetailPattern, element: <BreedingServiceDetailPage /> },
+              { path: REPRODUCTION_ROUTES.births, element: <BirthsPage /> },
+              { path: REPRODUCTION_ROUTES.birthDetailPattern, element: <BirthDetailPage /> },
+              { path: REPRODUCTION_ROUTES.stats, element: <ReproductionStatsPage /> },
+            ],
+          },
+          {
+            element: <RequirePermission permissions={[PERMISSIONS.REVIEWS_READ]} />,
+            children: [{ path: REVIEWS_ROUTES.list, element: <ReviewsPage /> }],
           },
           {
             element: <RequirePermission permissions={[PERMISSIONS.AUDIT_READ]} />,

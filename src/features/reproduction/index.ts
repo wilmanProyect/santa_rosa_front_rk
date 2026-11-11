@@ -1,0 +1,13 @@
+// API pública de la feature de reproducción: montas, diagnósticos, partos e indicadores.
+export { BreedingServicesPage } from './pages/BreedingServicesPage'
+export { BreedingServiceFormPage } from './pages/BreedingServiceFormPage'
+export { BreedingServiceDetailPage } from './pages/BreedingServiceDetailPage'
+export { BirthsPage } from './pages/BirthsPage'
+export { BirthFormPage } from './pages/BirthFormPage'
+export { BirthDetailPage } from './pages/BirthDetailPage'
+export { ReproductionStatsPage } from './pages/ReproductionStatsPage'
+export { AnimalReproductionPanel } from './components/AnimalReproductionPanel'
+export { REPRODUCTION_ROUTES } from './routes'
+export { reproductionKeys } from './hooks/useReproduction'
+export { SERVICE_STATUS_LABELS } from './types/reproduction.types'
+export type * from './types/reproduction.types'

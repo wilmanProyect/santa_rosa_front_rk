@@ -1,0 +1,101 @@
+/* Aviso "Datos por revisar" en las fichas */
+.review-banner {
+  border-radius: var(--radius);
+  border: 1px solid var(--color-warning);
+  border-left-width: 4px;
+  background: var(--color-warning-soft);
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+.review-banner__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-warning);
+}
+.review-banner__count {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.review-banner__list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.review-banner__item {
+  display: grid;
+  gap: 6px;
+}
+.review-banner__item + .review-banner__item {
+  border-top: 1px dashed var(--color-warning);
+  padding-top: 10px;
+}
+.review-banner__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.review-banner__category {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-warning);
+}
+.review-banner__source {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+.review-banner__message {
+  margin: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* Registros relacionados de un aviso */
+.review-targets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.82rem;
+}
+.review-targets__role {
+  color: var(--color-muted);
+}
+
+/* Marca en las filas de los listados */
+.review-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Página de avisos */
+.review-card {
+  display: grid;
+  gap: 8px;
+}
+.review-card.is-resolved {
+  opacity: 0.75;
+}
+.review-card__resolution {
+  font-size: 0.85rem;
+  border-left: 3px solid var(--color-success);
+  padding-left: 10px;
+  color: var(--color-text);
+}

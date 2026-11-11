@@ -29,7 +29,9 @@ Salvo los marcados como **Público**, todos los endpoints exigen un access token
 - [Control de peso](#control-de-peso)
 - [Productos veterinarios](#productos-veterinarios)
 - [Registro sanitario](#registro-sanitario)
+- [Reproducción](#reproducción)
 - [Recordatorios](#recordatorios)
+- [Revisión de datos](#revisión-de-datos)
 - [Copias de seguridad](#copias-de-seguridad)
 - [Sistema](#sistema)
 - [Modelos de respuesta](#modelos-de-respuesta)
@@ -147,13 +149,21 @@ Los define el sistema en [`permission-catalog.ts`](../src/modules/roles-permissi
 | `animal-photos:upload` | Animales | Subir fotos de animales, corregir su descripción y fecha, y elegir la foto principal |
 | `animal-photos:delete` | Animales | Eliminar fotos del historial de los animales |
 | `animals:issue-certificate` | Animales | Emitir el certificado (PDF) con toda la información del animal |
+| `animals:confirm-genetic-category` | Animales | Confirmar la categoría genética de un animal según ABSID (la esperada al nacer u otra) |
 | `weighings:write` | Control de peso | Registrar, corregir y eliminar pesajes (verlos solo requiere `animals:read`) |
 | `health:read` | Sanidad | Ver el registro sanitario, los eventos generales y el catálogo de productos veterinarios |
 | `health:write` | Sanidad | Registrar, corregir y eliminar eventos sanitarios y de manejo |
 | `health:override-withdrawal` | Sanidad | Autorizar la faena de un animal en período de retiro |
 | `veterinary-products:manage` | Sanidad | Administrar el catálogo de productos veterinarios |
+| `reproduction:read` | Reproducción | Ver montas, diagnósticos, partos, indicadores y sus recordatorios |
+| `reproduction:write` | Reproducción | Registrar y corregir montas, diagnósticos, abortos y partos (el parto crea las crías) |
+| `reproduction:override-kinship` | Reproducción | Autorizar una monta entre animales emparentados, con justificación |
+| `reviews:read` | Revisión de datos | Ver los avisos de datos por revisar en animales, montas y partos |
+| `reviews:create` | Revisión de datos | Crear avisos de revisión |
+| `reviews:resolve` | Revisión de datos | Marcar un aviso como corregido (o reabrirlo), indicando qué se hizo |
 | `audit:read` | Auditoría | Ver el historial de inicios de sesión |
 | `backups:create` | Sistema | Descargar una copia de seguridad completa (base de datos, fotos y archivos) |
+| `backups:restore` | Sistema | Restaurar una copia de seguridad (reemplaza todos los datos y archivos; antes se guarda un respaldo del estado actual) |
 
 **Permisos efectivos** = permisos de los roles activos del usuario + permisos otorgados individualmente − permisos denegados individualmente. Una denegación gana sobre lo que digan los roles. El frontend puede usar `effectivePermissions` (o `user.permissions` en el login) para mostrar u ocultar opciones.
 
@@ -232,8 +242,38 @@ Los define el sistema en [`permission-catalog.ts`](../src/modules/roles-permissi
 | `GET` | [`/health-records/:id`](#get--patch--delete-health-recordsid) | `health:read` |
 | `PATCH` | [`/health-records/:id`](#get--patch--delete-health-recordsid) | `health:write` |
 | `DELETE` | [`/health-records/:id`](#get--patch--delete-health-recordsid) | `health:write` |
-| `GET` | [`/reminders`](#recordatorios) | `animals:read` + `health:read` |
+| `GET` | [`/animals/:animalId/genetic-category/history`](#categoría-genética) | `animals:read` |
+| `POST` | [`/animals/:animalId/genetic-category/confirm`](#categoría-genética) | `animals:confirm-genetic-category` |
+| `POST` | [`/breeding/check`](#post-breedingcheck) | `reproduction:read` |
+| `GET` | [`/breeding/services`](#get-breedingservices) | `reproduction:read` |
+| `POST` | [`/breeding/services`](#post-breedingservices) | `reproduction:write` (+ `reproduction:override-kinship` para autorizar parentesco) |
+| `GET` | [`/breeding/services/:id`](#get--patch--delete-breedingservicesid) | `reproduction:read` |
+| `PATCH` | [`/breeding/services/:id`](#get--patch--delete-breedingservicesid) | `reproduction:write` |
+| `DELETE` | [`/breeding/services/:id`](#get--patch--delete-breedingservicesid) | `reproduction:write` |
+| `POST` | [`/breeding/services/:id/pregnancy-checks`](#diagnósticos-de-preñez) | `reproduction:write` |
+| `DELETE` | [`/breeding/services/:id/pregnancy-checks/:checkId`](#diagnósticos-de-preñez) | `reproduction:write` |
+| `POST` | [`/breeding/services/:id/abortion`](#aborto) | `reproduction:write` |
+| `DELETE` | [`/breeding/services/:id/abortion`](#aborto) | `reproduction:write` |
+| `POST` | [`/breeding/services/:id/birth`](#post-breedingservicesidbirth) | `reproduction:write` + `animals:create` |
+| `POST` | [`/breeding/births`](#post-breedingbirths) | `reproduction:write` + `animals:create` |
+| `GET` | [`/breeding/births`](#get-breedingbirths) | `reproduction:read` |
+| `GET` | [`/breeding/births/:id`](#get--patch-breedingbirthsid) | `reproduction:read` |
+| `PATCH` | [`/breeding/births/:id`](#get--patch-breedingbirthsid) | `reproduction:write` |
+| `GET` | [`/breeding/stats`](#get-breedingstats) | `reproduction:read` |
+| `GET` | [`/animals/:animalId/reproduction`](#get-animalsanimalidreproduction) | `reproduction:read` |
+| `GET` | [`/reminders`](#recordatorios) | `animals:read` + `health:read` (diagnósticos y partos: + `reproduction:read`) |
+| `GET` | [`/reviews`](#get-reviews) | `reviews:read` |
+| `GET` | [`/reviews/open-targets`](#get-reviewsopen-targets) | `reviews:read` |
+| `GET` | [`/reviews/:id`](#get-reviewsid) | `reviews:read` |
+| `POST` | [`/reviews`](#post-reviews) | `reviews:create` |
+| `POST` | [`/reviews/:id/resolve`](#post-reviewsidresolve) | `reviews:resolve` |
+| `POST` | [`/reviews/:id/reopen`](#post-reviewsidreopen) | `reviews:resolve` |
 | `GET` | [`/backups/download`](#get-backupsdownload) | `backups:create` |
+| `GET` | [`/backups/files`](#get-backupsfiles) | `backups:restore` |
+| `POST` | [`/backups/restore/upload`](#post-backupsrestoreupload) | `backups:restore` |
+| `POST` | [`/backups/restore/server-file`](#post-backupsrestoreserver-file) | `backups:restore` |
+| `POST` | [`/backups/restore/:restoreId/confirm`](#post-backupsrestorerestoreidconfirm) | `backups:restore` |
+| `DELETE` | [`/backups/restore/:restoreId`](#delete-backupsrestorerestoreid) | `backups:restore` |
 | `GET` | [`/`](#get-) | Público |
 
 ---
@@ -824,6 +864,11 @@ Donante de semen (externo):
 - Anulables (envíe `null` para vaciarlos): `earTag`, `name`, `colorId`, `geneticCategory`, `absidRegistry`, `absidCertificateCode`, `externalRegistry`, `identifierExceptionReason`, `damId`, `sireId`, `birthDate`, `entryDate`, `sourceFarm`, `notes`. Vaciar un campo obligatorio, como el arete de un animal de la cabaña, devuelve `400`.
 - Si cambia `species`, envíe también un `breedId` de la nueva especie.
 - `isExternal` no se puede cambiar. El estado y el certificado tienen endpoints propios.
+- **Partos históricos:** si cambia la madre, el padre, la fecha de nacimiento, el origen o el sexo de una cría que nació en la cabaña, la API reubica la cría en el parto histórico de su madre y fecha (en la misma transacción):
+  - Si ya hay un parto histórico de esa madre en esa fecha, la cría se suma (por ejemplo, unificar la fecha de unos trillizos los deja en un solo parto). Si no lo hay, se crea uno.
+  - El parto que se queda sin crías se elimina.
+  - El padre del parto es el de sus crías, o ninguno si no coinciden.
+  - Una cría a la que se le carga la madre por primera vez pasa a tener su parto.
 
 ```json
 { "entryOrigin": "PURCHASE", "entryDate": "2026-03-02", "sourceFarm": "Cabaña San Isidro" }
@@ -837,6 +882,7 @@ Donante de semen (externo):
 | `404` | Raza, color, madre o padre inexistente, o raza/color inactivo. |
 | `409` | La madre o el padre indicado es descendiente del animal (ciclo en la genealogía). |
 | `409` | Se intenta cambiar la especie o el sexo de un animal que ya tiene crías. |
+| `409` | La cría nació en un parto registrado con su formulario (no histórico): su madre, padre y fecha de nacimiento son los del parto. |
 | `409` | Arete o ABSID repetido (`DUPLICATE_IDENTIFIER` o `DUPLICATE_EAR_TAG_AND_ABSID`). Solo se valida si cambia el arete, el ABSID o `identifierException`. |
 
 ### `PATCH /animals/:id/status`
@@ -868,7 +914,7 @@ Donante de semen (externo):
 
 **Permiso:** `animals:delete`. Borrado lógico, **solo para registros cargados por error**. Para muertes, ventas, etc., use el [cambio de estado](#patch-animalsidstatus), que conserva la historia.
 
-Responde `204`. `409` si el animal tiene crías registradas.
+Responde `204`. `409` si el animal tiene crías registradas o figura como madre o padre en montas o partos.
 
 ### `PUT /animals/:id/certificate-file`
 
@@ -958,6 +1004,48 @@ La fecha y hora de emisión se muestran en la zona horaria `FARM_TIME_ZONE` (por
 | `FARM_LOCALITY` | Portachuelo |
 | `FARM_PHONE` | 69405387 |
 | `FARM_REGION` | Santa Cruz - Bolivia |
+
+### Categoría genética
+
+Cada animal tiene `geneticCategory` y `geneticCategoryConfirmed`:
+
+- **Esperada** (`geneticCategoryConfirmed: false`): la calcula el sistema al registrar un parto, según la categoría de los padres ([reglas](#categoría-esperada-de-la-cría)). Falta que ABSID la confirme.
+- **Confirmada** (`true`): la confirmó ABSID, o se cargó a mano (`POST`/`PATCH /animals` con `geneticCategory`), porque se toma del certificado. Las categorías cargadas antes del módulo de reproducción quedaron confirmadas.
+
+Cada cambio queda en el historial del animal.
+
+#### `POST /animals/:animalId/genetic-category/confirm`
+
+**Permiso:** `animals:confirm-genetic-category`. Confirma la categoría esperada, o asigna la que dio ABSID si es distinta.
+
+| Campo | Tipo | Detalle |
+| --- | --- | --- |
+| `category` | enum | Opcional: si se omite, se confirma la categoría actual. `400` si el animal no tiene categoría. |
+| `confirmedOn` | `YYYY-MM-DD` | Opcional (por defecto, hoy). No futura ni anterior al nacimiento. |
+| `absidCertificateCode` | string ≤ 50 | Opcional. También se guarda en el animal. |
+| `notes` | string ≤ 500 | Opcional |
+
+```jsonc
+// 201
+{ "animalId": "...", "geneticCategory": "G1", "geneticCategoryConfirmed": true,
+  "absidCertificateCode": "CERT-01", "change": { /* fila del historial */ } }
+```
+
+#### `GET /animals/:animalId/genetic-category/history`
+
+**Permiso:** `animals:read`. Del más antiguo al más reciente.
+
+```jsonc
+[
+  { "id": "...", "fromCategory": null, "toCategory": "G1", "kind": "EXPECTED_AT_BIRTH",
+    "changedOn": "2026-09-25", "absidCertificateCode": null, "notes": "Madre BASE × padre PO",
+    "createdAt": "...", "createdBy": "..." },
+  { "id": "...", "fromCategory": "G1", "toCategory": "G1", "kind": "CONFIRMED",
+    "changedOn": "2026-10-30", "absidCertificateCode": "CERT-01", "notes": null, "createdAt": "...", "createdBy": "..." }
+]
+```
+
+`kind`: `EXPECTED_AT_BIRTH` (calculada en el parto), `CONFIRMED` (ABSID) o `MANUAL` (editada en la ficha).
 
 ---
 
@@ -1222,11 +1310,263 @@ Si el producto aplicado tiene días de retiro, el evento calcula `meatWithdrawal
 
 ---
 
+## Reproducción
+
+Ciclo de cada hembra: **monta → diagnóstico de preñez → parto** (o aborto, o vacía). Un parto registra de 1 a 4 crías (2 son gemelos y 3 trillizos). Las **crías vivas se crean como animales**; las nacidas muertas solo cuentan para los indicadores.
+
+| Estado de la monta (`status`) | Cuándo |
+| --- | --- |
+| `PENDING` | Sin diagnóstico |
+| `PREGNANT` | Último diagnóstico: preñada |
+| `EMPTY` | Último diagnóstico: vacía |
+| `BIRTHED` | Parió |
+| `ABORTED` | Abortó |
+
+El sistema actualiza el estado con cada diagnóstico, aborto o parto. Una hembra tiene **una sola monta abierta** (`PENDING` o `PREGNANT`) a la vez.
+
+**Gestación:** 147 días en ovinos y 150 en caprinos (`expectedBirthDate`). Un parto fuera de los 140 a 160 días desde la monta se registra con un aviso.
+
+### Reglas de la monta
+
+Estas reglas bloquean la monta:
+
+| Regla | Respuesta |
+| --- | --- |
+| Hembra de la cabaña; macho propio o externo; misma especie | `400` |
+| La hembra estaba en la cabaña en esa fecha; la fecha no es futura | `400` |
+| En inseminación artificial (`ARTIFICIAL_INSEMINATION`), el padre es un reproductor **externo** | `400` |
+| La hembra ya tiene una monta abierta | `409` `code: "OPEN_SERVICE"` (trae `serviceId`) |
+| **Parentesco** hasta 3 generaciones | `409` `code: "KINSHIP_CONFLICT"` |
+
+#### Parentesco
+
+El sistema busca ancestros comunes de la pareja en **3 generaciones** (padres, abuelos y bisabuelos), incluida la relación directa (padre e hija, abuelo y nieta). Cualquier ancestro común bloquea la monta: hermanos, medio hermanos, tíos y sobrinos, primos.
+
+La respuesta `409` trae el detalle:
+
+```jsonc
+{
+  "statusCode": 409, "code": "KINSHIP_CONFLICT",
+  "message": "No se puede registrar la monta: La hembra y el macho están emparentados (medio hermanos): MA es padre de la hembra y padre del macho. Consanguinidad de la cría: 12.50 %.",
+  "kinship": {
+    "relationship": "medio hermanos",
+    "inbreedingCoefficient": 0.125,     // de la cría (Wright), de 0 a 1
+    "commonAncestors": [
+      { "id": "...", "earTag": "MA", "name": null, "damGeneration": 1, "sireGeneration": 1,
+        "description": "MA es padre de la hembra y padre del macho" }
+    ]
+  },
+  "canOverride": true                   // el usuario tiene reproduction:override-kinship
+}
+```
+
+**Autorizar:** un usuario con `reproduction:override-kinship` vuelve a enviar la monta con `overrideKinship: true` y una justificación en `overrideReason` (de 10 a 500 caracteres). La monta guarda la justificación, quién la autorizó y cuándo (`kinshipOverride`). Sin el permiso, la respuesta es `403`.
+
+> El control solo ve la genealogía registrada. Si a la hembra o al macho les falta la madre o el padre, la revisión lo avisa en `warnings`.
+
+#### Categoría esperada de la cría
+
+| Madre × Padre | Cría |
+| --- | --- |
+| Misma categoría | La misma (G1 × G1 = G1, PO × PO = PO) |
+| Distintas | Un escalón arriba del padre de **menor** categoría: BASE × PO = G1, G1 × PO = G2, G2 × PO = G3, G3 × PO = G4, **G4 × PO = PO**, G3 × BASE = G1 |
+| COMMERCIAL × G1, G2, G3, G4 o PO | BASE |
+| COMMERCIAL × BASE, o un padre sin categoría | No se calcula: se carga a mano |
+
+El orden es BASE < G1 < G2 < G3 < G4 < PO. La categoría calculada queda como **esperada** hasta que ABSID la confirme (ver [Categoría genética](#categoría-genética)).
+
+### `POST /breeding/check`
+
+**Permiso:** `reproduction:read`. Revisa una pareja **sin guardar nada**. El formulario lo usa mientras se eligen los animales.
+
+```jsonc
+// Cuerpo (type y serviceDate son opcionales)
+{ "damId": "...", "sireId": "...", "type": "DIRECTED", "serviceDate": "2026-11-11" }
+
+// 200
+{
+  "allowed": false,
+  "blocks": [
+    { "code": "KINSHIP_CONFLICT", "message": "...", "overridable": true }
+    // También: INVALID_PAIR (overridable: false) y OPEN_SERVICE (overridable: false, con serviceId)
+  ],
+  "warnings": ["No se conoce el padre de la hembra: ..."],
+  "dam": { "id": "...", "earTag": "0287", "name": null, "isExternal": false, "geneticCategory": "BASE" },
+  "sire": { "id": "...", "earTag": "135", "name": "HERCULES", "isExternal": false, "geneticCategory": "PO" },
+  "type": "DIRECTED",
+  "serviceDate": "2026-11-11",
+  "expectedBirthDate": "2027-04-07",
+  "expectedOffspringCategory": "G1",   // null si no se calcula
+  "categoryUpgrade": true,             // la cría sube de categoría respecto de la madre
+  "kinship": { "related": true, "relationship": "...", "inbreedingCoefficient": 0.25,
+               "commonAncestors": [ /* ... */ ], "knownAncestors": { "dam": 6, "sire": 14, "possible": 14 } }
+}
+```
+
+### `POST /breeding/services`
+
+**Permiso:** `reproduction:write`.
+
+| Campo | Tipo | Detalle |
+| --- | --- | --- |
+| `damId` | uuid | Hembra de la cabaña |
+| `sireId` | uuid | Macho propio o externo |
+| `type` | enum | `DIRECTED` (monta dirigida) o `ARTIFICIAL_INSEMINATION` |
+| `serviceDate` | `YYYY-MM-DD` | |
+| `strawCode` | string ≤ 50 | Código de la pajuela. Solo en inseminación. |
+| `performedBy` | string ≤ 150 | Quién hizo la monta |
+| `notes` | string ≤ 1000 | |
+| `overrideKinship` / `overrideReason` | boolean / string | Ver [Parentesco](#parentesco) |
+
+Responde `201` con la [Monta](#monta) y sus `warnings`.
+
+### `GET /breeding/services`
+
+**Permiso:** `reproduction:read`. Paginado, las más recientes primero. Filtros:
+- `status`, `type`, `species`;
+- `animalId` (como madre o padre), `damId`, `sireId`;
+- `from` / `to` (fecha de la monta);
+- `kinshipOverride` (`true`: solo las autorizadas pese al parentesco).
+
+### `GET` / `PATCH` / `DELETE /breeding/services/:id`
+
+- **`PATCH`:** corrige `serviceDate`, `strawCode`, `performedBy` y `notes` (`null` vacía los opcionales). La pareja y el tipo no cambian: si están mal, elimine la monta y regístrela de nuevo. No se puede cambiar la fecha de una monta con parto o aborto.
+- **`DELETE`:** borrado lógico de la monta y sus diagnósticos. Responde `204`, o `409` si la monta tiene parto.
+
+### Diagnósticos de preñez
+
+`POST /breeding/services/:id/pregnancy-checks`:
+
+| Campo | Tipo | Detalle |
+| --- | --- | --- |
+| `checkedAt` | `YYYY-MM-DD` | Ni futura ni anterior a la monta |
+| `method` | enum | `ULTRASOUND` (ecografía) u `OBSERVATION` |
+| `result` | enum | `PREGNANT` o `EMPTY` |
+| `fetusCount` | 1 a 4 | Opcional, solo si `PREGNANT` |
+| `notes` | string ≤ 500 | |
+
+Responde `201` con `{ check, service }`. El estado de la monta sigue al diagnóstico más reciente.
+
+`DELETE /breeding/services/:id/pregnancy-checks/:checkId` quita un diagnóstico cargado por error y devuelve la monta. Si al quitarlo la monta vuelve a quedar abierta y la hembra ya tiene otra abierta, responde `409 OPEN_SERVICE`.
+
+### Aborto
+
+- `POST /breeding/services/:id/abortion` con `{ "date": "YYYY-MM-DD", "cause": "..." }` (`cause` es opcional): la monta pasa a `ABORTED`.
+- `DELETE /breeding/services/:id/abortion` lo anula si se registró por error.
+
+### `POST /breeding/services/:id/birth`
+
+**Permisos:** `reproduction:write` y `animals:create`. Registra el parto de la monta. **En la misma transacción** crea cada cría viva como animal, con:
+
+- la madre y el padre de la monta, la fecha de nacimiento, el origen `BORN_ON_FARM` y la raza de la madre (salvo que se indique `breedId`);
+- la `geneticCategory` esperada (ver [reglas](#categoría-esperada-de-la-cría)), con `geneticCategoryConfirmed: false`;
+- un pesaje `BIRTH`, si se indica `birthWeightKg`.
+
+```jsonc
+{
+  "birthDate": "2026-09-25",
+  "assistance": "NORMAL",              // opcional: NORMAL | ASSISTED | CESAREAN
+  "notes": null,
+  "offspring": [                       // de 1 a 4, en orden de nacimiento
+    { "bornAlive": true, "sex": "FEMALE", "earTag": "0412", "birthWeightKg": 3.9 },
+    { "bornAlive": true, "sex": "MALE", "earTag": "0413", "name": "Trueno", "breedId": "...", "colorId": "..." },
+    { "bornAlive": false, "birthWeightKg": 2.1 }   // nacida muerta: sexo opcional, sin arete
+  ]
+}
+```
+
+Cada cría viva necesita `sex` y `earTag`. Los aretes se validan igual que al crear un animal (`409 DUPLICATE_IDENTIFIER`) y no pueden repetirse dentro del mismo parto (`400`).
+
+| Respuesta | Cuándo |
+| --- | --- |
+| `201` | [Parto](#parto) con sus `warnings`; cada cría viva trae `animal` con su categoría |
+| `409` | La monta ya tiene parto (trae `birthId`), o `code: "BIRTH_TOO_CLOSE"`: la madre tiene otro parto a menos de 140 días |
+| `400` | Fecha anterior a la monta o futura, cría viva sin sexo o sin arete, o más de 4 crías |
+
+Estos avisos (`warnings`) no bloquean el parto:
+- el parto cae fuera de los 140 a 160 días desde la monta;
+- tiene más de 3 crías;
+- la ecografía contó otro número de fetos;
+- el último diagnóstico de la monta decía "vacía";
+- una cría pesó más de 10 kg al nacer.
+
+### `POST /breeding/births`
+
+**Permisos:** `reproduction:write` y `animals:create`. Registra un parto **sin monta registrada**. El cuerpo es el mismo, más `damId` y `sireId` (opcional, si se conoce el padre).
+- Si la hembra tiene una monta abierta, responde `409 OPEN_SERVICE` con `serviceId`, para que el parto se registre en esa monta.
+- Si los padres están emparentados, el parto se registra igual, con un aviso.
+
+### `GET /breeding/births`
+
+**Permiso:** `reproduction:read`. Paginado, los más recientes primero. Filtros:
+- `species`;
+- `animalId` (como madre, padre o cría), `damId`, `sireId`;
+- `from` / `to`;
+- `litterSize` (1 simple, 2 gemelos, 3 trillizos);
+- `isHistorical`.
+
+### `GET` / `PATCH /breeding/births/:id`
+
+`PATCH` corrige `assistance` y `notes`. Las crías y los padres se corrigen en la ficha de cada animal.
+
+> **Partos históricos** (`isHistorical: true`): los reconstruyó la migración a partir de los animales ya cargados, agrupando las crías nacidas en la cabaña que tienen la misma madre y la misma fecha. No tienen monta, y todas sus crías figuran como vivas.
+
+### `GET /breeding/stats`
+
+**Permiso:** `reproduction:read`. Filtros opcionales: `species`, `from` y `to`. En las montas se filtra por la fecha de la monta, y en los partos por la fecha del parto.
+
+```jsonc
+{
+  "filters": { "species": "SHEEP" },
+  "services": {
+    "total": 40, "withResult": 32, "conceptions": 27, "kinshipOverrides": 1,
+    "byStatus": { "PENDING": 8, "PREGNANT": 10, "EMPTY": 5, "BIRTHED": 16, "ABORTED": 1 },
+    "byType": { "DIRECTED": 35, "ARTIFICIAL_INSEMINATION": 5 }
+  },
+  "births": {
+    "total": 172, "historical": 171, "offspring": 186, "bornAlive": 185, "bornDead": 1,
+    "byLitterSize": { "1": 159, "2": 12, "3": 1, "4": 0 },
+    "averageIntervalDays": 274, "intervalsCounted": 77
+  },
+  "sires": [
+    { "sire": { "id": "...", "earTag": "SA-611", "name": "VESUVIO" }, "services": 3, "servicesWithResult": 3,
+      "conceptions": 2, "births": 71, "offspring": 78, "bornAlive": 78 }
+  ],
+  "indicators": {
+    "fertilityRate": 84.4,          // % de concepciones sobre las montas con resultado
+    "prolificacy": 1.08,            // crías por parto
+    "multipleBirthRate": 7.6,       // % de partos con 2 o más crías
+    "stillbirthRate": 0.5,          // % de crías nacidas muertas
+    "averageBirthIntervalDays": 274
+  }
+}
+```
+
+### `GET /animals/:animalId/reproduction`
+
+**Permiso:** `reproduction:read`. Historial reproductivo del animal: sus montas como madre o padre, sus partos como madre o padre, y el parto en el que nació.
+
+```jsonc
+{
+  "summary": {
+    "births": 3, "offspring": 5, "bornAlive": 4, "multipleBirths": 1, "averageLitterSize": 1.67,
+    "lastBirthDate": "2026-09-25",
+    "openService": null   // en hembras: { id, status, serviceDate, expectedBirthDate, sire }
+  },
+  "services": [ /* Monta */ ],
+  "births": [ /* Parto */ ]
+}
+```
+
+---
+
 ## Recordatorios
 
 ### `GET /reminders`
 
-**Permisos:** `animals:read` y `health:read`. Lo programado hasta `?until=YYYY-MM-DD` (por defecto, dentro de 7 días), **incluidos los atrasados** (`overdue: true`). Pensado para mostrar alertas en la pantalla de inicio.
+**Permisos:** `animals:read` y `health:read`. Lo programado hasta `?until=YYYY-MM-DD` (por defecto, dentro de 7 días; los partos, dentro de 15), **incluidos los atrasados** (`overdue: true`). Pensado para mostrar alertas en la pantalla de inicio.
+
+`pregnancyChecks` y `upcomingBirths` solo se llenan si el usuario tiene `reproduction:read` (si no, llegan vacíos).
 
 ```jsonc
 {
@@ -1240,9 +1580,92 @@ Si el producto aplicado tiene días de retiro, el evento calcula `meatWithdrawal
     { "recordId": "...", "animalId": "...", "earTag": "10", "name": null, "type": "VACCINATION",
       "productName": "Vacuna clostridial", "targetCondition": "Clostridiosis", "location": null,
       "lastAppliedAt": "2026-05-10", "nextDoseAt": "2026-11-10", "overdue": false }
+  ],
+  "pregnancyChecks": [
+    // Montas sin diagnóstico desde los 30 días. overdue: pasaron 45 días.
+    { "serviceId": "...", "dam": { "id": "...", "earTag": "0330", "name": null },
+      "sire": { "id": "...", "earTag": null, "name": "Donante 55120" },
+      "serviceDate": "2026-06-01", "checkFrom": "2026-07-01", "overdue": true }
+  ],
+  "upcomingBirths": [
+    // Montas abiertas (PENDING o PREGNANT) con parto probable hasta la fecha. overdue: ya pasó.
+    { "serviceId": "...", "dam": { /* ... */ }, "sire": { /* ... */ }, "serviceDate": "2026-05-01",
+      "status": "PREGNANT", "expectedBirthDate": "2026-09-25", "expectedFetusCount": 2, "overdue": false }
   ]
 }
 ```
+
+---
+
+## Revisión de datos
+
+Avisos sobre datos que el personal tiene que verificar y corregir. Por ejemplo, las diferencias encontradas al cruzar la planilla de montas con el sistema. Un aviso se asocia a uno o más registros (animales, partos o montas) y se muestra en la ficha de cada uno mientras esté pendiente (`OPEN`). Cuando alguien lo marca como corregido (`RESOLVED`), indicando qué hizo, deja de mostrarse. No se borran: quedan en el historial con la resolución.
+
+La migración `ProductionSheetReviews` cargó 46 avisos con las diferencias entre la planilla de montas (`Produccion.csv`) y el sistema, más los partos de una misma madre demasiado cercanos.
+
+Corregir el dato no cierra el aviso solo: después de corregirlo, márquelo como corregido.
+
+### `GET /reviews`
+
+**Permiso:** `reviews:read`. Paginado; primero los pendientes, después los más recientes.
+
+| Parámetro | Descripción |
+| --- | --- |
+| `status` | `OPEN` o `RESOLVED` |
+| `category` | `PARENTAGE`, `MISSING_RECORD`, `DATES`, `IDENTIFIER` u `OTHER` |
+| `entityType` + `entityId` | Avisos de un registro (`ANIMAL`, `BIRTH` o `BREEDING_SERVICE`). Es lo que usa el aviso de cada ficha, con `status=OPEN`. |
+| `search` | Texto dentro del aviso, por ejemplo un arete |
+
+**200 OK:** página de [Aviso de revisión](#aviso-de-revisión).
+
+### `GET /reviews/open-targets`
+
+**Permiso:** `reviews:read`. `?entityType=ANIMAL` (obligatorio). Registros de ese tipo con avisos pendientes, para marcar las filas de los listados sin consultar cada una.
+
+```json
+{ "entityType": "ANIMAL", "totalOpen": 46, "items": [{ "entityId": "...", "count": 2 }] }
+```
+
+`totalOpen` es el total de avisos pendientes de cualquier tipo.
+
+### `GET /reviews/:id`
+
+**Permiso:** `reviews:read`. **200 OK:** el [Aviso de revisión](#aviso-de-revisión). `404` si no existe.
+
+### `POST /reviews`
+
+**Permiso:** `reviews:create`.
+
+```json
+{
+  "category": "PARENTAGE",
+  "message": "La planilla dice que la madre de CSR-12 es 55 JADE; en el sistema figura 0385 VALENTE.",
+  "source": "Planilla de montas",
+  "targets": [
+    { "entityType": "ANIMAL", "entityId": "...", "role": "Cría" },
+    { "entityType": "BIRTH", "entityId": "...", "role": "Parto" }
+  ]
+}
+```
+
+- `message`: de 10 a 1000 caracteres. `source`: opcional, hasta 150.
+- `targets`: de 1 a 10 registros, sin repetir. `role` (opcional, hasta 60 caracteres) dice qué papel cumple cada uno.
+
+**201 Created:** el [Aviso de revisión](#aviso-de-revisión). `400` si un registro no existe o está repetido.
+
+### `POST /reviews/:id/resolve`
+
+**Permiso:** `reviews:resolve`.
+
+```json
+{ "resolution": "Madre corregida a 55 JADE según la planilla" }
+```
+
+`resolution`: de 5 a 1000 caracteres. **200 OK:** el aviso con `status: "RESOLVED"`, `resolution`, `resolvedAt` y `resolvedBy`. `400` si ya estaba corregido.
+
+### `POST /reviews/:id/reopen`
+
+**Permiso:** `reviews:resolve`. Lo vuelve a dejar pendiente y borra la resolución. `400` si ya estaba pendiente.
 
 ---
 
@@ -1276,7 +1699,102 @@ No se envía `Content-Length`: el archivo se genera mientras se descarga. La bas
 | `403` | Falta el permiso `backups:create`. |
 | `409` | Ya se está generando otra copia de seguridad. Reintente cuando termine. |
 
-**Restaurar** no se hace desde la API, a propósito: reemplaza todos los datos. Se hace por terminal en el servidor (`pnpm restore`, ver el README del backend). El archivo que descarga este endpoint sirve tal cual para restaurar.
+El archivo que descarga este endpoint sirve tal cual para restaurar, desde la API (abajo) o por terminal (`pnpm restore`, ver el README del backend).
+
+### Restaurar
+
+**Permiso:** `backups:restore` (el rol **Administrador** lo tiene). Reemplaza **todos** los datos y archivos por los del respaldo. Son dos pasos, para que el usuario vea de cuándo es el respaldo antes de confirmar:
+
+1. **Preparar:** se sube el respaldo (`POST /backups/restore/upload`) o se elige uno de la carpeta del servidor (`POST /backups/restore/server-file`). La API lo lee completo y verifica el formato y el SHA-256 de cada pieza. **No modifica nada.** Responde con una vista previa y un `restoreId`.
+2. **Confirmar:** `POST /backups/restore/:restoreId/confirm` con `"confirmation": "RESTAURAR"`. La API hace esto, en orden:
+   1. Guarda un respaldo del estado actual en la carpeta del servidor (`BACKUP_DIR`), como `antes-de-restaurar-santa-rosa-respaldo-….tar.gz`. Si falla, no restaura nada.
+   2. Restaura la base en **una sola transacción**: si algo falla, la base queda como estaba.
+   3. Sube los archivos del respaldo y borra de Garage los que no estaban en él.
+   4. Aplica las migraciones pendientes (si el respaldo es de una versión anterior) y sincroniza el catálogo de permisos. No hace falta reiniciar la API.
+
+Otras reglas:
+
+- Hay una sola restauración preparada a la vez: preparar otra descarta la anterior. Vence a los **30 minutos**.
+- Solo la confirma o la cancela el usuario que la preparó.
+- Al terminar, los usuarios, roles y sesiones son los del respaldo. El frontend debe cerrar la sesión y pedir que se vuelva a ingresar.
+- Un respaldo de una versión **más nueva** del sistema (con una migración que esta versión no conoce) se rechaza con `409 BACKUP_FROM_NEWER_VERSION`.
+- Mientras se genera un respaldo o se restaura otro, responde `409`.
+
+#### Vista previa (respuesta del paso 1)
+
+```jsonc
+{
+  "restoreId": "...",
+  "expiresAt": "2026-11-11T20:05:00.000Z",
+  "origin": { "kind": "UPLOAD", "fileName": "santa-rosa-respaldo-20261110-111918.tar.gz" }, // o SERVER_FILE
+  "backup": {
+    "createdAt": "2026-11-10T15:19:18.000Z",
+    "createdBy": "admin",               // "terminal del servidor" si se generó por terminal
+    "database": { "size": 228812, "serverVersion": "17.6", "lastMigration": "AnimalStatusLost1793750400000" },
+    "files": 4,
+    "totalFileBytes": 8912345
+  },
+  // Migraciones que se aplicarán después de restaurar; [] si el respaldo es de esta versión.
+  "pendingMigrations": ["Reproduction1794409623224", "DataReviews1794422956697", "ProductionSheetReviews1794422956698"]
+}
+```
+
+### `GET /backups/files`
+
+Respaldos (`.tar.gz`) de la carpeta del servidor, del más reciente al más antiguo: los generados por terminal y los que se guardan antes de cada restauración.
+
+```json
+[{ "fileName": "antes-de-restaurar-santa-rosa-respaldo-20261111-153157.tar.gz", "size": 8901234, "modifiedAt": "2026-11-11T19:31:57.000Z" }]
+```
+
+### `POST /backups/restore/upload`
+
+`multipart/form-data` con el campo `file` (el `.tar.gz`). Hasta `BACKUP_UPLOAD_MAX_MB` (2048 MB por defecto). El archivo se guarda en disco, no en memoria. **201:** la [vista previa](#vista-previa-respuesta-del-paso-1).
+
+| Código | Cuándo |
+| --- | --- |
+| `400` | Falta el archivo, o no es un respaldo de Santa Rosa, o está dañado o incompleto (el mensaje dice cuál). |
+| `409` | `BACKUP_FROM_NEWER_VERSION`: el respaldo es de una versión más nueva del sistema. |
+| `413` | El archivo supera el tamaño máximo. Cópielo a la carpeta del servidor y use `server-file`. |
+
+### `POST /backups/restore/server-file`
+
+```json
+{ "fileName": "antes-de-restaurar-santa-rosa-respaldo-20261111-153157.tar.gz" }
+```
+
+Solo nombres de `GET /backups/files`: sin rutas. **201:** la [vista previa](#vista-previa-respuesta-del-paso-1). `400` si el nombre es inválido, `404` si no existe, y `400` o `409` como en `upload`.
+
+### `POST /backups/restore/:restoreId/confirm`
+
+```json
+{ "confirmation": "RESTAURAR" }
+```
+
+**200 OK:**
+
+```jsonc
+{
+  "restoredFrom": "2026-11-10T15:19:18.000Z",   // fecha del respaldo restaurado
+  "origin": { "kind": "UPLOAD", "fileName": "..." },
+  "uploadedFiles": 4,
+  "deletedFiles": 2,                            // archivos de Garage que no estaban en el respaldo
+  "safetyCopy": { "fileName": "antes-de-restaurar-santa-rosa-respaldo-20261111-153157.tar.gz", "size": 8901234 },
+  "migrationsApplied": [],
+  "sessionEnded": true                          // cerrar la sesión y volver a ingresar
+}
+```
+
+| Código | Cuándo |
+| --- | --- |
+| `400` | `confirmation` no es exactamente `RESTAURAR`. |
+| `404` | La restauración preparada no existe, venció, ya se usó o la preparó otro usuario. |
+| `409` | Se está generando un respaldo en ese momento. La restauración preparada se conserva: reintente. |
+| `500` | Falló la restauración. Si falló la base, quedó como estaba. Si el mensaje dice que la base se restauró pero falló la actualización, reinicie la API para que aplique las migraciones. |
+
+### `DELETE /backups/restore/:restoreId`
+
+Descarta la restauración preparada y borra su copia temporal. **204.** `404` como en `confirm`.
 
 ---
 
@@ -1413,6 +1931,7 @@ Se usa en los listados.
   "sex": "FEMALE",                                     // MALE | FEMALE
   "color": { "id": "e02d...", "name": "Blanco" },      // null
   "geneticCategory": "G1",                             // null si aún no se clasificó
+  "geneticCategoryConfirmed": true,                    // false: esperada (calculada al nacer), falta ABSID
   "absidRegistry": "ABSID-2025-0311",                  // null
   "identifierException": false,                        // true: caso especial (arete o ABSID repetido)
   "birthDate": "2025-08-14",                           // null si se desconoce
@@ -1567,6 +2086,87 @@ AnimalResumen más estos campos:
 
 ---
 
+### Monta
+
+```jsonc
+{
+  "id": "...",
+  "dam":  { "id": "...", "earTag": "0287", "name": null, "isExternal": false, "geneticCategory": "BASE" },
+  "sire": { "id": "...", "earTag": "135", "name": "HERCULES", "isExternal": false, "geneticCategory": "PO" },
+  "species": "SHEEP",
+  "type": "DIRECTED",                    // DIRECTED | ARTIFICIAL_INSEMINATION
+  "serviceDate": "2026-05-01",
+  "strawCode": null,                     // pajuela (inseminación)
+  "performedBy": "Juan Pérez",
+  "expectedBirthDate": "2026-09-25",
+  "status": "PREGNANT",                  // ver estados de la monta
+  "expectedOffspringCategory": "G1",     // calculada al registrar la monta; null si no se calcula
+  "expectedFetusCount": 2,               // del último diagnóstico, si la ecografía los contó
+  "inbreedingCoefficient": 0,            // consanguinidad de la cría (0 a 1)
+  "kinshipOverride": null,               // { reason, authorizedBy, authorizedAt } si se autorizó pese al parentesco
+  "abortion": null,                      // { date, cause }
+  "checks": [
+    { "id": "...", "checkedAt": "2026-06-10", "method": "ULTRASOUND", "result": "PREGNANT",
+      "fetusCount": 2, "notes": null, "createdAt": "...", "createdBy": "..." }
+  ],
+  "notes": null,
+  "createdAt": "...", "createdBy": "...", "updatedAt": "...", "updatedBy": "...",
+  "warnings": []                         // solo al crear
+}
+```
+
+### Parto
+
+```jsonc
+{
+  "id": "...",
+  "serviceId": "...",                    // null: parto sin monta o histórico
+  "dam":  { "id": "...", "earTag": "0287", "name": null, "isExternal": false, "geneticCategory": "BASE" },
+  "sire": { "id": "...", "earTag": "135", "name": "HERCULES", "isExternal": false, "geneticCategory": "PO" }, // null si no se conoce
+  "species": "SHEEP",
+  "birthDate": "2026-09-25",
+  "assistance": "NORMAL",                // null
+  "litterSize": 3,
+  "litterType": "TRIPLETS",              // SINGLE | TWINS | TRIPLETS | QUADRUPLETS
+  "bornAlive": 2,
+  "bornDead": 1,
+  "isHistorical": false,
+  "offspring": [
+    { "position": 1, "sex": "FEMALE", "bornAlive": true, "birthWeightKg": 3.9,
+      "animal": { "id": "...", "earTag": "0412", "name": null,
+                  "geneticCategory": "G1", "geneticCategoryConfirmed": false } }, // la categoría viene solo al registrar
+    { "position": 3, "sex": null, "bornAlive": false, "birthWeightKg": 2.1, "animal": null }
+  ],
+  "notes": null,
+  "createdAt": "...", "createdBy": "...", "updatedAt": "...", "updatedBy": "...",
+  "warnings": []                         // solo al registrar
+}
+```
+
+### Aviso de revisión
+
+```jsonc
+{
+  "id": "...",
+  "category": "PARENTAGE",             // PARENTAGE | MISSING_RECORD | DATES | IDENTIFIER | OTHER
+  "message": "Madre dudosa de CSR-12 FOEMA. La planilla dice que es hija de 55 JADE…",
+  "source": "Planilla de montas (Produccion.csv), cruzada el 11/11/2026", // null
+  "status": "OPEN",                    // OPEN | RESOLVED
+  "resolution": null,                  // qué se corrigió
+  "resolvedAt": null,
+  "resolvedBy": null,
+  "targets": [
+    { "entityType": "ANIMAL", "entityId": "...", "role": "Cría", "label": "CSR-12 FOEMA", "exists": true },
+    { "entityType": "ANIMAL", "entityId": "...", "role": "Madre en el sistema", "label": "0385 VALENTE", "exists": true },
+    { "entityType": "BIRTH", "entityId": "...", "role": "Parto",
+      "label": "Parto de 0385 VALENTE del 13/09/2025", "exists": false } // false: el registro se eliminó
+  ],
+  "createdAt": "...", "createdBy": null, "updatedAt": "...", "updatedBy": null
+}
+```
+
+`label` es un texto listo para mostrar: arete y nombre del animal (con "(externo)" si corresponde), "Parto de … del …" o "Monta de … × … del …".
+
 ## Valores fijos
 
 | Valor | Campo | Significado |
@@ -1634,3 +2234,14 @@ AnimalResumen más estos campos:
 | `INTRANASAL` | `route`, `defaultRoute` | Intranasal |
 | `POUR_ON` | `route`, `defaultRoute` | Pour-on (sobre el lomo) |
 | `IMMERSION` | `route`, `defaultRoute` | Inmersión (baño) |
+| `DIRECTED` | `type` (monta) | Monta dirigida (macho propio o externo) |
+| `ARTIFICIAL_INSEMINATION` | `type` (monta) | Inseminación artificial (reproductor externo) |
+| `PENDING` / `PREGNANT` / `EMPTY` / `BIRTHED` / `ABORTED` | `status` (monta) | Sin diagnóstico / Preñada / Vacía / Parió / Abortó |
+| `ULTRASOUND` / `OBSERVATION` | `method` (diagnóstico) | Ecografía / Observación |
+| `PREGNANT` / `EMPTY` | `result` (diagnóstico) | Preñada / Vacía |
+| `NORMAL` / `ASSISTED` / `CESAREAN` | `assistance` (parto) | Normal / Asistido / Cesárea |
+| `SINGLE` / `TWINS` / `TRIPLETS` / `QUADRUPLETS` | `litterType` (parto) | Simple / Gemelos / Trillizos / Cuatrillizos |
+| `EXPECTED_AT_BIRTH` / `CONFIRMED` / `MANUAL` | `kind` (historial de categoría) | Esperada al nacer / Confirmada por ABSID / Editada a mano |
+| `PARENTAGE` / `MISSING_RECORD` / `DATES` / `IDENTIFIER` / `OTHER` | `category` (aviso de revisión) | Madre o padre / Falta un registro / Fechas / Identificación / Otro |
+| `OPEN` / `RESOLVED` | `status` (aviso de revisión) | Pendiente / Corregido |
+| `ANIMAL` / `BIRTH` / `BREEDING_SERVICE` | `entityType` (aviso de revisión) | Animal / Parto / Monta |

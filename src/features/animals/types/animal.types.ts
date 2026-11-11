@@ -3,7 +3,7 @@ import type { AuditFields, EntityRef, PaginationParams } from '@/shared/types/ap
 // ---------- Valores fijos ----------
 export type Species = 'SHEEP' | 'GOAT'
 export type Sex = 'MALE' | 'FEMALE'
-export type AnimalStatus = 'ALIVE' | 'DEAD' | 'SOLD' | 'SLAUGHTERED' | 'GIFTED' | 'EXCHANGED'
+export type AnimalStatus = 'ALIVE' | 'DEAD' | 'SOLD' | 'SLAUGHTERED' | 'GIFTED' | 'EXCHANGED' | 'LOST'
 export type EntryOrigin = 'BORN_ON_FARM' | 'PURCHASE' | 'DONATION' | 'GIFT' | 'INITIAL_STOCK'
 export type GeneticCategory = 'COMMERCIAL' | 'BASE' | 'G1' | 'G2' | 'G3' | 'G4' | 'PO'
 
@@ -18,6 +18,7 @@ export const ANIMAL_STATUS_LABELS: Record<AnimalStatus, string> = {
   SLAUGHTERED: 'Faenado',
   GIFTED: 'Regalado',
   EXCHANGED: 'Intercambiado',
+  LOST: 'Perdido',
 }
 
 export const ENTRY_ORIGIN_LABELS: Record<EntryOrigin, string> = {
@@ -36,6 +37,18 @@ export const GENETIC_CATEGORY_LABELS: Record<GeneticCategory, string> = {
   G3: 'Grado 3 (G3)',
   G4: 'Grado 4 (G4)',
   PO: 'Puro de origen (PO)',
+}
+
+/** Orden de las categorías, de menor a mayor (COMMERCIAL queda aparte). */
+export const GENETIC_CATEGORY_ORDER: GeneticCategory[] = ['COMMERCIAL', 'BASE', 'G1', 'G2', 'G3', 'G4', 'PO']
+
+/** Origen de cada cambio del historial de categoría genética. */
+export type GeneticCategoryChangeKind = 'EXPECTED_AT_BIRTH' | 'CONFIRMED' | 'MANUAL'
+
+export const GENETIC_CATEGORY_CHANGE_LABELS: Record<GeneticCategoryChangeKind, string> = {
+  EXPECTED_AT_BIRTH: 'Esperada al nacer',
+  CONFIRMED: 'Confirmada por ABSID',
+  MANUAL: 'Editada a mano',
 }
 
 /** Códigos de negocio que devuelve el backend en los 409. */
@@ -94,6 +107,8 @@ export interface AnimalSummary {
   sex: Sex
   color: EntityRef | null
   geneticCategory: GeneticCategory | null
+  /** false: categoría esperada (calculada al nacer), falta que ABSID la confirme. */
+  geneticCategoryConfirmed: boolean
   absidRegistry: string | null
   identifierException: boolean
   birthDate: string | null
@@ -209,6 +224,35 @@ export interface ChangeAnimalStatusRequest {
 
 /** PATCH /animals/:id/status devuelve el animal y avisos que no impidieron el cambio. */
 export type ChangeAnimalStatusResponse = AnimalDetail & { warnings?: string[] }
+
+// ---------- Categoría genética ----------
+export interface ConfirmGeneticCategoryRequest {
+  /** Si se omite, se confirma la categoría actual. */
+  category?: GeneticCategory
+  confirmedOn?: string
+  absidCertificateCode?: string
+  notes?: string
+}
+
+export interface GeneticCategoryChange {
+  id: string
+  fromCategory: GeneticCategory | null
+  toCategory: GeneticCategory | null
+  kind: GeneticCategoryChangeKind
+  changedOn: string
+  absidCertificateCode: string | null
+  notes: string | null
+  createdAt: string
+  createdBy: string | null
+}
+
+export interface ConfirmGeneticCategoryResponse {
+  animalId: string
+  geneticCategory: GeneticCategory
+  geneticCategoryConfirmed: boolean
+  absidCertificateCode: string | null
+  change: GeneticCategoryChange
+}
 
 /** Cuerpo del 409 DUPLICATE_IDENTIFIER / DUPLICATE_EAR_TAG_AND_ABSID. */
 export interface DuplicateIdentifierBody {

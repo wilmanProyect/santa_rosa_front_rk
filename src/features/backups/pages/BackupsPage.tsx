@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { Can } from '@/features/auth'
 import { ApiError, getErrorMessage } from '@/shared/api/api-error'
 import { formatBytes, formatDateTime } from '@/shared/lib/format'
 import { Alert, Button, PageHeader, useToast } from '@/shared/ui'
+import { PERMISSIONS } from '@/shared/config/permissions'
 import { backupsApi } from '../api/backups.api'
+import { RestoreSection } from '../components/RestoreSection'
 
 interface LastBackup {
   fileName: string
@@ -11,8 +14,8 @@ interface LastBackup {
 }
 
 /**
- * Descarga de la copia de seguridad completa. Restaurar no está en la interfaz,
- * a propósito: se hace por terminal en el servidor.
+ * Descarga de la copia de seguridad completa y, con `backups:restore`, su
+ * restauración (en dos pasos, con confirmación).
  */
 export function BackupsPage() {
   const toast = useToast()
@@ -52,7 +55,7 @@ export function BackupsPage() {
       <PageHeader
         eyebrow="Sistema"
         title="Copias de seguridad"
-        description="Descargue una copia completa del sistema: la base de datos y todas las fotos y certificados."
+        description="Descargue una copia completa del sistema (la base de datos y todas las fotos y certificados) o restaure una anterior."
       />
 
       <div className="form-sections">
@@ -84,12 +87,12 @@ export function BackupsPage() {
                 {formatBytes(last.size)}), {formatDateTime(last.at.toISOString())}.
               </p>
             )}
-            <p className="muted small m-0">
-              La restauración no se hace desde aquí: se ejecuta por terminal en el servidor con el archivo
-              descargado (ver el README del backend).
-            </p>
           </div>
         </section>
+
+        <Can permissions={[PERMISSIONS.BACKUPS_RESTORE]}>
+          <RestoreSection />
+        </Can>
       </div>
     </>
   )

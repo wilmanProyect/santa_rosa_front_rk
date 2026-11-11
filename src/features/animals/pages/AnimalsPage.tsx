@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Can } from '@/features/auth'
+import { ReviewFlag } from '@/features/reviews'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { PERMISSIONS } from '@/shared/config/permissions'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
@@ -8,6 +9,7 @@ import { formatAge } from '@/shared/lib/format'
 import { Alert, Button, Icon, PageHeader, Pagination, SelectField, Spinner, Tabs } from '@/shared/ui'
 import { AnimalFlags, AnimalStatusBadge } from '../components/AnimalBadges'
 import { AnimalThumb } from '../components/AnimalThumb'
+import { GeneticCategoryText } from '../components/GeneticCategory'
 import { useAnimals } from '../hooks/useAnimals'
 import { useBreeds, useColors } from '../hooks/useCatalogs'
 import { ANIMALS_ROUTES } from '../routes'
@@ -271,6 +273,7 @@ export function AnimalsPage() {
                               isExternal={false}
                               identifierException={animal.identifierException}
                             />
+                            <ReviewFlag entityType="ANIMAL" entityId={animal.id} />
                           </div>
                         </div>
                       </div>
@@ -282,11 +285,11 @@ export function AnimalsPage() {
                     <td>{SEX_LABELS[animal.sex]}</td>
                     <td className="nowrap">{formatAge(animal.birthDate)}</td>
                     <td>
-                      {animal.geneticCategory ? (
-                        GENETIC_CATEGORY_LABELS[animal.geneticCategory]
-                      ) : (
-                        <span className="muted">—</span>
-                      )}
+                      <GeneticCategoryText
+                        category={animal.geneticCategory}
+                        confirmed={animal.geneticCategoryConfirmed}
+                        long
+                      />
                     </td>
                     {!isExternal && (
                       <td>

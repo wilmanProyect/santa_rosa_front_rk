@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useAuth } from '@/features/auth'
+import { ReviewBanner } from '@/features/reviews'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { PERMISSIONS } from '@/shared/config/permissions'
 import { formatAge, formatDate, formatDateTime, formatKg } from '@/shared/lib/format'
@@ -22,6 +23,7 @@ import { AnimalThumb } from '../components/AnimalThumb'
 import { CertificateCard } from '../components/CertificateCard'
 import { ChangeAnimalStatusDialog } from '../components/ChangeAnimalStatusDialog'
 import { Genealogy } from '../components/Genealogy'
+import { GeneticCategoryCard, GeneticCategoryText } from '../components/GeneticCategory'
 import { IssueCertificateButton } from '../components/IssueCertificateButton'
 import { PhotoGallery } from '../components/photos/PhotoGallery'
 import { WeighingsPanel } from '../components/weighings/WeighingsPanel'
@@ -31,7 +33,6 @@ import { ANIMALS_ROUTES } from '../routes'
 import {
   ANIMAL_STATUS_LABELS,
   ENTRY_ORIGIN_LABELS,
-  GENETIC_CATEGORY_LABELS,
   SEX_LABELS,
   SPECIES_LABELS,
   type AnimalDetail,
@@ -147,6 +148,7 @@ function AnimalDetailView({ animal, extraTabs }: { animal: AnimalDetail; extraTa
       />
 
       <div className="stack" style={{ marginBottom: 18 }}>
+        <ReviewBanner entityType="ANIMAL" entityId={animal.id} />
         {!alive && !animal.isExternal && (
           <div className="status-banner" role="status">
             <div>
@@ -241,7 +243,15 @@ function AnimalData({ animal }: { animal: AnimalDetail }) {
         <DataItem label="Color" value={animal.color?.name} />
         <DataItem
           label="Categoría genética"
-          value={animal.geneticCategory && GENETIC_CATEGORY_LABELS[animal.geneticCategory]}
+          value={
+            animal.geneticCategory && (
+              <GeneticCategoryText
+                category={animal.geneticCategory}
+                confirmed={animal.geneticCategoryConfirmed}
+                long
+              />
+            )
+          }
         />
       </Card>
 
@@ -249,6 +259,8 @@ function AnimalData({ animal }: { animal: AnimalDetail }) {
         <DataItem label="Registro ABSID" value={animal.absidRegistry} />
         <DataItem label="Registro externo" value={animal.externalRegistry} />
       </Card>
+
+      <GeneticCategoryCard animal={animal} />
 
       <Card title="Nacimiento y pesos">
         <DataItem label="Fecha de nacimiento" value={animal.birthDate && formatDate(animal.birthDate)} />

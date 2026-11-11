@@ -17,7 +17,7 @@ import {
 type ExitStatus = Exclude<AnimalStatus, 'ALIVE'>
 
 /** Salidas del inventario: no son borrados, son cambios de estado. */
-const EXIT_STATUSES: ExitStatus[] = ['DEAD', 'SOLD', 'SLAUGHTERED', 'GIFTED', 'EXCHANGED']
+const EXIT_STATUSES: ExitStatus[] = ['DEAD', 'SOLD', 'SLAUGHTERED', 'GIFTED', 'EXCHANGED', 'LOST']
 
 const REASON_HINT: Record<ExitStatus, string> = {
   DEAD: 'Causa de la muerte',
@@ -25,6 +25,7 @@ const REASON_HINT: Record<ExitStatus, string> = {
   SLAUGHTERED: 'Destino o detalle de la faena',
   GIFTED: 'A quién se regaló',
   EXCHANGED: 'Con quién y por qué animal se intercambió',
+  LOST: 'Dónde y cuándo se lo vio por última vez',
 }
 
 interface ChangeAnimalStatusDialogProps {

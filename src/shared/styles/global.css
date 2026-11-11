@@ -1059,3 +1059,45 @@ a.table__primary:hover {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
 }
+
+/* Línea de tiempo (historial de categoría, diagnósticos de preñez) */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.timeline > li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 0 14px 22px;
+  border-left: 2px solid var(--color-border);
+  margin-left: 6px;
+}
+.timeline > li:last-child {
+  border-left-color: transparent;
+  padding-bottom: 0;
+}
+.timeline > li::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 2px solid var(--color-accent);
+}
+.timeline > li.is-positive::before {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+.timeline > li.is-negative::before {
+  border-color: var(--color-warning);
+  background: var(--color-warning-soft);
+}

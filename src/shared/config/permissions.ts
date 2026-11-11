@@ -28,6 +28,7 @@ export const PERMISSIONS = {
   ANIMALS_CHANGE_STATUS: 'animals:change-status',
   ANIMALS_DELETE: 'animals:delete',
   ANIMALS_ISSUE_CERTIFICATE: 'animals:issue-certificate',
+  ANIMALS_CONFIRM_GENETIC_CATEGORY: 'animals:confirm-genetic-category',
   ANIMAL_CATALOGS_MANAGE: 'animal-catalogs:manage',
   ANIMAL_PHOTOS_UPLOAD: 'animal-photos:upload',
   ANIMAL_PHOTOS_DELETE: 'animal-photos:delete',
@@ -39,8 +40,17 @@ export const PERMISSIONS = {
   HEALTH_OVERRIDE_WITHDRAWAL: 'health:override-withdrawal',
   VETERINARY_PRODUCTS_MANAGE: 'veterinary-products:manage',
 
+  REPRODUCTION_READ: 'reproduction:read',
+  REPRODUCTION_WRITE: 'reproduction:write',
+  REPRODUCTION_OVERRIDE_KINSHIP: 'reproduction:override-kinship',
+
+  REVIEWS_READ: 'reviews:read',
+  REVIEWS_CREATE: 'reviews:create',
+  REVIEWS_RESOLVE: 'reviews:resolve',
+
   AUDIT_READ: 'audit:read',
   BACKUPS_CREATE: 'backups:create',
+  BACKUPS_RESTORE: 'backups:restore',
 } as const
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

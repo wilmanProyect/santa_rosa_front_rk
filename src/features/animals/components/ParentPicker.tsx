@@ -21,6 +21,8 @@ interface ParentPickerProps {
   onChange(parent: ParentRef | null, animal?: AnimalSummary): void
   /** Incluye reproductores externos (para el padre). */
   includeExternal?: boolean
+  /** Solo reproductores externos (p. ej. el padre de una inseminación artificial). */
+  onlyExternal?: boolean
   /** El propio animal, al editar, para que no sea su propio padre. */
   excludeId?: string
   disabled?: boolean
@@ -39,10 +41,12 @@ export function ParentPicker({
   hint,
   value,
   onChange,
-  includeExternal = false,
+  includeExternal: includeExternalProp = false,
+  onlyExternal = false,
   excludeId,
   disabled,
 }: ParentPickerProps) {
+  const includeExternal = includeExternalProp || onlyExternal
   const inputId = useId()
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
@@ -51,10 +55,17 @@ export function ParentPicker({
   const enabled = open && canSearch
 
   const base = { species: species || undefined, sex, status, search: debounced || undefined, limit: SUGGESTIONS }
-  const own = useAnimals({ ...base, isExternal: false }, { enabled })
-  const external = useAnimals({ ...base, isExternal: true }, { enabled: enabled && includeExternal })
+  const own = useAnimals({ ...base, isExternal: false }, { enabled: enabled && !onlyExternal })
+  // Los externos no tienen estado: el filtro de estado no se les aplica.
+  const external = useAnimals(
+    { ...base, status: undefined, isExternal: true },
+    { enabled: enabled && includeExternal },
+  )
 
-  const options = [...(own.data?.items ?? []), ...(includeExternal ? (external.data?.items ?? []) : [])]
+  const options = [
+    ...(onlyExternal ? [] : (own.data?.items ?? [])),
+    ...(includeExternal ? (external.data?.items ?? []) : []),
+  ]
     .filter((animal) => animal.id !== excludeId)
   const loading = own.isFetching || external.isFetching
 

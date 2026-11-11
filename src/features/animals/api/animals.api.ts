@@ -11,7 +11,10 @@ import type {
   ChangeAnimalStatusRequest,
   ChangeAnimalStatusResponse,
   ColorFilters,
+  ConfirmGeneticCategoryRequest,
+  ConfirmGeneticCategoryResponse,
   CreateAnimalRequest,
+  GeneticCategoryChange,
   Species,
   UpdateAnimalRequest,
   UpdatePhotoRequest,
@@ -60,6 +63,15 @@ export const animalsApi = {
     const file = await httpFile(`/animals/${id}/certificate`, { query: { download: download || undefined } })
     return { ...file, number: file.headers.get('x-certificate-number') }
   },
+
+  // ---------- Categoría genética ----------
+  /** Confirma la categoría esperada, o asigna la que dio ABSID si es distinta. */
+  confirmGeneticCategory: (id: string, body: ConfirmGeneticCategoryRequest) =>
+    http<ConfirmGeneticCategoryResponse>(`/animals/${id}/genetic-category/confirm`, { method: 'POST', body }),
+
+  /** Del más antiguo al más reciente. */
+  geneticCategoryHistory: (id: string) =>
+    http<GeneticCategoryChange[]>(`/animals/${id}/genetic-category/history`),
 }
 
 export const catalogsApi = {

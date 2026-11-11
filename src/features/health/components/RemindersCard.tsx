@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { ANIMALS_ROUTES } from '@/features/animals'
+import { REPRODUCTION_ROUTES, SERVICE_STATUS_LABELS } from '@/features/reproduction'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { formatDate, formatKg, todayIso } from '@/shared/lib/format'
 import { Alert, Badge, Icon, SelectField, Spinner } from '@/shared/ui'
@@ -50,6 +51,29 @@ export function RemindersCard() {
           animalId: w.animalId as string | null,
           who: label(w.earTag, w.name),
         })),
+        // Reproducción (llegan vacíos sin reproduction:read).
+        ...(data.pregnancyChecks ?? []).map((p) => ({
+          key: `check-${p.serviceId}`,
+          date: p.checkFrom,
+          overdue: p.overdue,
+          icon: 'heart' as const,
+          title: 'Diagnóstico de preñez',
+          titleTo: REPRODUCTION_ROUTES.serviceDetail(p.serviceId),
+          detail: `Monta con ${label(p.sire.earTag, p.sire.name)} el ${formatDate(p.serviceDate)}`,
+          animalId: p.dam.id as string | null,
+          who: label(p.dam.earTag, p.dam.name),
+        })),
+        ...(data.upcomingBirths ?? []).map((b) => ({
+          key: `birth-${b.serviceId}`,
+          date: b.expectedBirthDate,
+          overdue: b.overdue,
+          icon: 'calendar' as const,
+          title: `Parto probable${b.expectedFetusCount ? ` · ${b.expectedFetusCount} feto(s)` : ''}`,
+          titleTo: REPRODUCTION_ROUTES.serviceDetail(b.serviceId),
+          detail: `${SERVICE_STATUS_LABELS[b.status]} · monta con ${label(b.sire.earTag, b.sire.name)}`,
+          animalId: b.dam.id as string | null,
+          who: label(b.dam.earTag, b.dam.name),
+        })),
       ].sort((a, b) => a.date.localeCompare(b.date))
     : []
   const overdueCount = items.filter((i) => i.overdue).length
@@ -60,7 +84,7 @@ export function RemindersCard() {
         <div>
           <h2>Recordatorios</h2>
           <p>
-            Pesajes y dosis programados
+            Pesajes, dosis, diagnósticos y partos programados
             {overdueCount > 0 && (
               <>
                 {' · '}
@@ -99,7 +123,9 @@ export function RemindersCard() {
                   <Icon name={item.icon} size={16} />
                 </span>
                 <div className="reminders__body">
-                  <strong>{item.title}</strong>
+                  <strong>
+                    {'titleTo' in item && item.titleTo ? <Link to={item.titleTo}>{item.title}</Link> : item.title}
+                  </strong>
                   <span className="muted small">
                     {item.animalId ? (
                       <Link to={ANIMALS_ROUTES.detail(item.animalId)}>{item.who}</Link>

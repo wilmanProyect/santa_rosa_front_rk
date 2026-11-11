@@ -8,6 +8,7 @@ const STATUS_TONE: Record<AnimalStatus, 'success' | 'danger' | 'info' | 'neutral
   SLAUGHTERED: 'warning',
   GIFTED: 'info',
   EXCHANGED: 'info',
+  LOST: 'warning',
 }
 
 export function AnimalStatusBadge({ status }: { status: AnimalStatus }) {

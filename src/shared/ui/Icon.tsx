@@ -130,6 +130,16 @@ const ICONS = {
     </>
   ),
   exit: <path d="M3 12h13M12 7l5 5-5 5M21 4v16" />,
+  heart: (
+    <path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z" />
+  ),
+  calendar: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </>
+  ),
+  chart: <path d="M3 3v18h18M7 16v-4M12 16V8M17 16v-7" />,
 } satisfies Record<string, ReactNode>
 
 export type IconName = keyof typeof ICONS

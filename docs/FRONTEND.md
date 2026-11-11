@@ -22,8 +22,10 @@ El contrato completo de cada endpoint (todos los campos, todos los códigos de e
 14. [Módulo: Control de peso](#14-módulo-control-de-peso)
 15. [Módulo: Registro sanitario y productos veterinarios](#15-módulo-registro-sanitario-y-productos-veterinarios)
 16. [Recordatorios en el inicio](#16-recordatorios-en-el-inicio)
-17. [Módulo: Copias de seguridad](#17-módulo-copias-de-seguridad)
-18. [Orden sugerido de implementación](#18-orden-sugerido-de-implementación)
+17. [Módulo: Reproducción](#17-módulo-reproducción)
+18. [Módulo: Datos por revisar](#18-módulo-datos-por-revisar)
+19. [Módulo: Copias de seguridad](#19-módulo-copias-de-seguridad)
+20. [Orden sugerido de implementación](#20-orden-sugerido-de-implementación)
 
 ---
 
@@ -270,13 +272,22 @@ export const PERMISSIONS = {
   ANIMAL_CATALOGS_MANAGE: 'animal-catalogs:manage',
   ANIMAL_PHOTOS_UPLOAD: 'animal-photos:upload',
   ANIMAL_PHOTOS_DELETE: 'animal-photos:delete',
+  ANIMALS_ISSUE_CERTIFICATE: 'animals:issue-certificate',
+  ANIMALS_CONFIRM_GENETIC_CATEGORY: 'animals:confirm-genetic-category',
   WEIGHINGS_WRITE: 'weighings:write',
   HEALTH_READ: 'health:read',
   HEALTH_WRITE: 'health:write',
   HEALTH_OVERRIDE_WITHDRAWAL: 'health:override-withdrawal',
   VETERINARY_PRODUCTS_MANAGE: 'veterinary-products:manage',
+  REPRODUCTION_READ: 'reproduction:read',
+  REPRODUCTION_WRITE: 'reproduction:write',
+  REPRODUCTION_OVERRIDE_KINSHIP: 'reproduction:override-kinship',
+  REVIEWS_READ: 'reviews:read',
+  REVIEWS_CREATE: 'reviews:create',
+  REVIEWS_RESOLVE: 'reviews:resolve',
   AUDIT_READ: 'audit:read',
   BACKUPS_CREATE: 'backups:create',
+  BACKUPS_RESTORE: 'backups:restore',
 } as const;
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
@@ -300,6 +311,7 @@ export const can = (granted: string[], ...required: Permission[]) =>
 | Menú **Áreas** | `areas:read` · crear `areas:create` · editar `areas:update` · eliminar `areas:delete` |
 | Menú **Auditoría de accesos** | `audit:read` |
 | Botón **Descargar copia de seguridad** | `backups:create` |
+| Sección **Restaurar una copia de seguridad** | `backups:create` (para ver la pantalla) + `backups:restore` |
 | Menú **Animales** (listado, ficha, genealogía, galería) | `animals:read` |
 | Registrar animal | `animals:create` |
 | Editar animal, subir/quitar certificado | `animals:update` |
@@ -315,7 +327,14 @@ export const can = (granted: string[], ...required: Permission[]) =>
 | Registrar, corregir o eliminar eventos sanitarios; aplicación masiva | `health:write` |
 | Autorizar una faena en período de retiro | `health:override-withdrawal` |
 | Administrar productos veterinarios | `veterinary-products:manage` |
-| Recordatorios en el inicio | `animals:read` + `health:read` |
+| Botón "Confirmar categoría ABSID" en la ficha | `animals:confirm-genetic-category` |
+| Menú **Reproducción** (montas, partos, indicadores) y pestaña "Reproducción" de la ficha | `reproduction:read` |
+| Registrar o corregir montas, diagnósticos y abortos | `reproduction:write` |
+| Registrar un parto (crea las crías) | `reproduction:write` + `animals:create` |
+| Autorizar una monta entre parientes | `reproduction:override-kinship` |
+| Aviso "Datos por revisar" en fichas y listados, y menú **Datos por revisar** | `reviews:read` |
+| Botón "Marcar como corregido" y "Reabrir" | `reviews:resolve` |
+| Recordatorios en el inicio | `animals:read` + `health:read` (diagnósticos y partos: + `reproduction:read`) |
 
 Proteja también las **rutas**, no solo los botones: si el usuario entra a una URL sin el permiso, muestre "No tiene acceso" en lugar de una pantalla vacía.
 
@@ -487,6 +506,8 @@ export interface AnimalSummary {
   sex: Sex;
   color: Ref | null;
   geneticCategory: GeneticCategory | null;
+  /** false: categoría esperada (calculada al nacer), falta que ABSID la confirme. */
+  geneticCategoryConfirmed: boolean;
   absidRegistry: string | null;
   identifierException: boolean;
   birthDate: DateOnly | null;
@@ -680,6 +701,147 @@ export interface Reminders {
     type: HealthEventType; productName: string | null; targetCondition: string | null;
     location: string | null; lastAppliedAt: DateOnly; nextDoseAt: DateOnly; overdue: boolean;
   }[];
+  /** Vacíos si el usuario no tiene reproduction:read. */
+  pregnancyChecks: PendingPregnancyCheck[];
+  upcomingBirths: UpcomingBirth[];
+}
+
+// ---------- Reproducción ----------
+export type ServiceType = 'DIRECTED' | 'ARTIFICIAL_INSEMINATION';
+export type ServiceStatus = 'PENDING' | 'PREGNANT' | 'EMPTY' | 'BIRTHED' | 'ABORTED';
+export type PregnancyCheckMethod = 'ULTRASOUND' | 'OBSERVATION';
+export type PregnancyCheckResult = 'PREGNANT' | 'EMPTY';
+export type BirthAssistance = 'NORMAL' | 'ASSISTED' | 'CESAREAN';
+export type LitterType = 'SINGLE' | 'TWINS' | 'TRIPLETS' | 'QUADRUPLETS';
+export type GeneticCategoryChangeKind = 'EXPECTED_AT_BIRTH' | 'CONFIRMED' | 'MANUAL';
+export type BreedingBlockCode = 'INVALID_PAIR' | 'OPEN_SERVICE' | 'KINSHIP_CONFLICT';
+
+export interface BreedingAnimalRef {
+  id: Uuid; earTag: string | null; name: string | null;
+  isExternal: boolean; geneticCategory: GeneticCategory | null;
+}
+
+export interface CommonAncestor {
+  id: Uuid; earTag: string | null; name: string | null;
+  /** 0: es la propia hembra (o el propio macho). */
+  damGeneration: number; sireGeneration: number;
+  description: string;
+}
+
+export interface BreedingEvaluation {
+  allowed: boolean;
+  blocks: { code: BreedingBlockCode; message: string; overridable: boolean; serviceId?: Uuid }[];
+  warnings: string[];
+  dam: BreedingAnimalRef;
+  sire: BreedingAnimalRef;
+  type: ServiceType;
+  serviceDate: DateOnly;
+  expectedBirthDate: DateOnly;
+  expectedOffspringCategory: GeneticCategory | null;
+  categoryUpgrade: boolean;
+  kinship: {
+    related: boolean;
+    relationship: string | null;
+    inbreedingCoefficient: number; // 0 a 1
+    commonAncestors: CommonAncestor[];
+    knownAncestors: { dam: number; sire: number; possible: number };
+  };
+}
+
+export interface PregnancyCheck {
+  id: Uuid; checkedAt: DateOnly; method: PregnancyCheckMethod; result: PregnancyCheckResult;
+  fetusCount: number | null; notes: string | null; createdAt: DateTime; createdBy: Uuid | null;
+}
+
+export interface BreedingService extends Audit {
+  id: Uuid;
+  dam: BreedingAnimalRef;
+  sire: BreedingAnimalRef;
+  species: Species;
+  type: ServiceType;
+  serviceDate: DateOnly;
+  strawCode: string | null;
+  performedBy: string | null;
+  expectedBirthDate: DateOnly;
+  status: ServiceStatus;
+  expectedOffspringCategory: GeneticCategory | null;
+  expectedFetusCount: number | null;
+  inbreedingCoefficient: number;
+  kinshipOverride: { reason: string; authorizedBy: Uuid; authorizedAt: DateTime } | null;
+  abortion: { date: DateOnly; cause: string | null } | null;
+  checks: PregnancyCheck[];
+  notes: string | null;
+  /** Solo al crear. */
+  warnings?: string[];
+}
+
+export interface Birth extends Audit {
+  id: Uuid;
+  serviceId: Uuid | null;
+  dam: BreedingAnimalRef;
+  sire: BreedingAnimalRef | null;
+  species: Species;
+  birthDate: DateOnly;
+  assistance: BirthAssistance | null;
+  litterSize: number;
+  litterType: LitterType;
+  bornAlive: number;
+  bornDead: number;
+  isHistorical: boolean;
+  offspring: {
+    position: number; sex: Sex | null; bornAlive: boolean; birthWeightKg: number | null;
+    animal: {
+      id: Uuid; earTag: string | null; name: string | null;
+      /** Solo en la respuesta del registro. */
+      geneticCategory?: GeneticCategory | null; geneticCategoryConfirmed?: boolean;
+    } | null;
+  }[];
+  notes: string | null;
+  /** Solo al registrar. */
+  warnings?: string[];
+}
+
+export interface BirthOffspringInput {
+  bornAlive: boolean;
+  sex?: Sex;               // obligatorio si bornAlive
+  earTag?: string;         // obligatorio si bornAlive
+  birthWeightKg?: number;
+  name?: string;
+  breedId?: Uuid;          // por defecto, la raza de la madre
+  colorId?: Uuid;
+  notes?: string;
+}
+
+export interface GeneticCategoryChange {
+  id: Uuid; fromCategory: GeneticCategory | null; toCategory: GeneticCategory | null;
+  kind: GeneticCategoryChangeKind; changedOn: DateOnly; absidCertificateCode: string | null;
+  notes: string | null; createdAt: DateTime; createdBy: Uuid | null;
+}
+
+export interface AnimalReproduction {
+  summary: {
+    births: number; offspring: number; bornAlive: number; multipleBirths: number;
+    averageLitterSize: number | null; lastBirthDate: DateOnly | null;
+    openService: {
+      id: Uuid; status: ServiceStatus; serviceDate: DateOnly; expectedBirthDate: DateOnly;
+      sire: BreedingAnimalRef;
+    } | null;
+  };
+  services: BreedingService[];
+  births: Birth[];
+}
+
+export interface PendingPregnancyCheck {
+  serviceId: Uuid; dam: { id: Uuid; earTag: string | null; name: string | null };
+  sire: { id: Uuid; earTag: string | null; name: string | null };
+  serviceDate: DateOnly; checkFrom: DateOnly; overdue: boolean;
+}
+
+export interface UpcomingBirth {
+  serviceId: Uuid; dam: { id: Uuid; earTag: string | null; name: string | null };
+  sire: { id: Uuid; earTag: string | null; name: string | null };
+  serviceDate: DateOnly; status: ServiceStatus; expectedBirthDate: DateOnly;
+  expectedFetusCount: number | null; overdue: boolean;
 }
 ```
 
@@ -766,6 +928,43 @@ export const GENETIC_CATEGORY_LABEL: Record<GeneticCategory, string> = {
   G3: 'Grado 3 (G3)',
   G4: 'Grado 4 (G4)',
   PO: 'Puro de origen (PO)',
+};
+
+export const SERVICE_TYPE_LABEL: Record<ServiceType, string> = {
+  DIRECTED: 'Monta dirigida',
+  ARTIFICIAL_INSEMINATION: 'Inseminación artificial',
+};
+
+export const SERVICE_STATUS_LABEL: Record<ServiceStatus, string> = {
+  PENDING: 'Sin diagnóstico',
+  PREGNANT: 'Preñada',
+  EMPTY: 'Vacía',
+  BIRTHED: 'Parió',
+  ABORTED: 'Abortó',
+};
+
+export const PREGNANCY_CHECK_METHOD_LABEL: Record<PregnancyCheckMethod, string> = {
+  ULTRASOUND: 'Ecografía',
+  OBSERVATION: 'Observación',
+};
+
+export const BIRTH_ASSISTANCE_LABEL: Record<BirthAssistance, string> = {
+  NORMAL: 'Normal',
+  ASSISTED: 'Asistido',
+  CESAREAN: 'Cesárea',
+};
+
+export const LITTER_TYPE_LABEL: Record<LitterType, string> = {
+  SINGLE: 'Simple',
+  TWINS: 'Gemelos',
+  TRIPLETS: 'Trillizos',
+  QUADRUPLETS: 'Cuatrillizos',
+};
+
+export const GENETIC_CATEGORY_CHANGE_LABEL: Record<GeneticCategoryChangeKind, string> = {
+  EXPECTED_AT_BIRTH: 'Esperada al nacer',
+  CONFIRMED: 'Confirmada por ABSID',
+  MANUAL: 'Editada a mano',
 };
 
 export const USER_STATUS_LABEL: Record<UserStatus, string> = { ACTIVE: 'Activo', INACTIVE: 'De baja' };
@@ -1124,6 +1323,8 @@ En externos, `sourceFarm` sirve para la cabaña o el centro de semen de origen.
 - Si cambia la especie, envíe también un `breedId` de la nueva especie.
 - `409` si cambia la especie o el sexo de un animal **con crías** registradas: avise que no se puede.
 - `400` si la nueva fecha de nacimiento no es anterior a la de su cría más antigua.
+- Al corregir la madre, el padre o la fecha de nacimiento de una cría nacida en la cabaña, la API reubica la cría en el parto histórico que corresponde. No hay que hacer nada más.
+- `409` si la cría nació en un parto registrado con su formulario: su madre, padre y fecha son los del parto. Muestre el mensaje.
 - El estado, el certificado y las fotos tienen acciones propias.
 
 ### 12.4 Caso especial: arete o ABSID repetido
@@ -1253,12 +1454,15 @@ Estructura sugerida de la ficha (`GET /animals/:id`):
 - **Crías:** `GET /animals?parentId=<id>`. Devuelve las crías de la cabaña donde el animal es madre o padre. Funciona igual para un reproductor externo.
 - **Fotos:** galería ([sección 13](#13-módulo-fotos-de-animales)).
 - **Certificado ABSID:** código y archivo.
+- **Categoría genética:** muestre la insignia "Esperada" si `geneticCategoryConfirmed` es `false`, con el botón "Confirmar categoría ABSID" y el historial ([17.7](#177-categoría-genética-esperada-y-confirmada)).
+- **Reproducción:** pestaña con montas, partos y resumen ([17.6](#176-pestaña-reproducción-de-la-ficha)).
+- **Datos por revisar:** aviso arriba de la ficha si el animal tiene avisos pendientes ([sección 18](#18-módulo-datos-por-revisar)).
 - **Botón "Emitir certificado":** PDF con toda la ficha ([12.6.1](#1261-certificado-del-animal-pdf-generado)).
 - **Auditoría:** creado y modificado (fecha y usuario).
 
 ### 12.8 Eliminar
 
-`DELETE /animals/:id` (`animals:delete`) → `204`. **Solo para registros cargados por error**: en el diálogo de confirmación explique que para una muerte o venta se usa "Registrar salida". `409` si tiene crías registradas.
+`DELETE /animals/:id` (`animals:delete`) → `204`. **Solo para registros cargados por error**: en el diálogo de confirmación explique que para una muerte o venta se usa "Registrar salida". `409` si tiene crías registradas o figura como madre o padre en montas o partos.
 
 ---
 
@@ -1436,12 +1640,178 @@ Además:
 
 - **Tarjeta "Próximos pesajes":** arete, nombre, fecha programada y último peso. En rojo los atrasados (`overdue`). Al tocar uno, abra el formulario de pesaje del animal.
 - **Tarjeta "Próximas dosis":** tipo, producto, enfermedad, animal o corral, y fecha. Al tocar uno, abra el formulario del evento con los datos precargados.
-- Un recordatorio desaparece solo cuando se registra un pesaje posterior, o un evento posterior del mismo tipo. No hay que marcarlo como hecho.
+- **Tarjeta "Diagnósticos de preñez"** (con `reproduction:read`): hembra, macho, fecha de monta y desde cuándo diagnosticar (`checkFrom`). En rojo si `overdue` (pasaron 45 días). Al tocar uno, abra el diagnóstico de esa monta.
+- **Tarjeta "Partos próximos"** (con `reproduction:read`): hembra, fecha probable, estado y fetos esperados. Por defecto, los próximos 15 días. En rojo los atrasados: la hembra pasó la fecha sin parto registrado.
+- Un recordatorio desaparece solo cuando se registra lo que corresponde: un pesaje posterior, un evento posterior del mismo tipo, un diagnóstico o el parto. No hay que marcarlo como hecho.
 - Muestre un contador en el menú (p. ej. "3 atrasados") consultando este endpoint al cargar la aplicación.
 
 ---
 
-## 17. Módulo: Copias de seguridad
+## 17. Módulo: Reproducción
+
+Montas, diagnósticos de preñez, abortos y partos. Reglas y respuestas en [API.md](API.md#reproducción).
+
+### 17.1 Conceptos
+
+- **Monta:** una hembra de la cabaña con un macho, propio o externo. Hay dos tipos: **monta dirigida** e **inseminación artificial**. En la inseminación el padre siempre es un reproductor externo, y se anota el código de la pajuela.
+- **Estado:** lo calcula la API y el frontend solo lo muestra.
+  - **Sin diagnóstico → Preñada o Vacía**, según el último diagnóstico.
+  - **Preñada → Parió o Abortó.**
+- **Una monta abierta por hembra:** mientras la monta está "Sin diagnóstico" o "Preñada", la hembra no puede tener otra.
+- **Parto:** de 1 a 4 crías. Las vivas se crean como animales; las muertas solo cuentan para las estadísticas.
+- **Categoría de la cría:** al registrar el parto, la API calcula la categoría **esperada** según los padres (por ejemplo, BASE × PO = G1). Queda pendiente hasta que ABSID la confirme.
+
+### 17.2 Listado de montas
+
+`GET /breeding/services` con pestañas por estado:
+
+| Pestaña | `status` |
+| --- | --- |
+| Sin diagnóstico | `PENDING` |
+| Preñadas | `PREGNANT` |
+| Vacías | `EMPTY` |
+| Paridas | `BIRTHED` |
+| Abortos | `ABORTED` |
+
+- **Columnas:** fecha, hembra, macho (con insignia "Externo"), tipo, estado, fecha probable de parto y categoría esperada de la cría.
+- **Insignia "Autorizada con parentesco"** cuando `kinshipOverride` no es `null`. El filtro `kinshipOverride=true` sirve para auditarlas.
+- **Filtros:** especie, tipo, rango de fechas y `animalId`. Use un buscador de animales para `animalId`.
+
+### 17.3 Registrar una monta
+
+Formulario: hembra (buscador de hembras vivas de la cabaña), macho (buscador de machos propios y externos), tipo, fecha, pajuela (solo en inseminación), quién la hizo y observaciones.
+
+**Revisión en vivo:** apenas estén elegidos la hembra, el macho, el tipo y la fecha, llame a `POST /breeding/check` (con un *debounce* de 300 ms al cambiar la fecha) y muestre un panel con:
+
+- **Bloqueos** (`blocks`), en rojo, con su mensaje. Mientras haya uno, el botón "Guardar" queda deshabilitado. La excepción es el parentesco, que se puede autorizar (ver más abajo).
+- **Avisos** (`warnings`), en amarillo, como genealogía incompleta o categoría sin confirmar. No impiden guardar.
+- **Categoría esperada de la cría**, por ejemplo "La cría será **G1**". Agregue "↑ sube de categoría" si `categoryUpgrade` es verdadero.
+- **Fecha probable de parto.**
+- **Parentesco:** la relación y la consanguinidad, en %. Si la hay, también la lista de ancestros comunes, cada uno con su `description` y un enlace a su ficha.
+
+**Si hay parentesco** (bloqueo `KINSHIP_CONFLICT`):
+- Con el permiso `reproduction:override-kinship`, muestre "Autorizar de todos modos". Debe abrir un diálogo que exija la justificación (de 10 a 500 caracteres) y envíe `overrideKinship: true` y `overrideReason`.
+- Sin el permiso, muestre: "Solo un administrador puede autorizar esta monta".
+
+La revisión no reemplaza las validaciones de la API. Al guardar, maneje también estas respuestas, porque los datos pueden cambiar entre la revisión y el guardado:
+
+| Respuesta | Qué hacer |
+| --- | --- |
+| `409 OPEN_SERVICE` | Mostrar el mensaje con un enlace a la monta abierta (`serviceId`) |
+| `409 KINSHIP_CONFLICT` | Mostrar el parentesco (`kinship`) y, si `canOverride`, la opción de autorizar |
+| `403` | Falta `reproduction:override-kinship` para autorizar |
+
+Después de guardar, muestre los `warnings` de la respuesta.
+
+### 17.4 Ficha de la monta
+
+`GET /breeding/services/:id`. Muestra los datos de la monta, la línea de tiempo de diagnósticos y las acciones según el estado:
+
+| Estado | Acciones |
+| --- | --- |
+| Sin diagnóstico, Preñada o Vacía | Registrar diagnóstico · Registrar aborto (no en Vacía) · Registrar parto · Editar · Eliminar |
+| Parió | Ver parto · Editar observaciones |
+| Abortó | Anular aborto · Editar observaciones |
+
+- **Diagnóstico:** fecha, método (ecografía u observación), resultado y número de fetos. El número de fetos solo aparece si el resultado es "Preñada".
+- Cada diagnóstico tiene un botón "Eliminar", para corregir errores.
+- **Editar:** solo la fecha, la pajuela, quién la hizo y las observaciones. Para cambiar la pareja hay que eliminar la monta y registrarla de nuevo; dígalo en la pantalla.
+- **Eliminar:** no se ofrece si la monta tiene parto (la API responde `409`).
+
+### 17.5 Registrar un parto
+
+Desde la ficha de una monta: `POST /breeding/services/:id/birth`. Desde el menú, para un parto sin monta registrada: `POST /breeding/births`, con hembra y macho opcional.
+
+- **Encabezado:** fecha del parto, tipo de parto (normal, asistido o cesárea) y observaciones.
+- **Crías:** una fila por cría, con los botones "Agregar cría" (hasta 4) y "Quitar". Precargue tantas filas como fetos indicó la ecografía (`expectedFetusCount`).
+
+| Campo de la fila | Cría viva | Cría muerta |
+| --- | --- | --- |
+| ¿Nació viva? | sí | no |
+| Sexo | obligatorio | opcional |
+| Arete | obligatorio | no se muestra |
+| Peso al nacer | opcional (se registra como pesaje de nacimiento) | opcional |
+| Nombre, raza, color, observaciones | opcionales (la raza por defecto es la de la madre) | no se muestran |
+
+- Muestre en vivo "Simple", "Gemelos" o "Trillizos" según el número de filas.
+- Si la monta tenía categoría esperada, muestre "Las crías vivas se registrarán como **G1 (esperada)**".
+
+Respuestas:
+
+| Respuesta | Qué hacer |
+| --- | --- |
+| `201` | Resumen del parto con enlaces a las fichas de las crías creadas, más los `warnings` |
+| `409 DUPLICATE_IDENTIFIER` | Marcar el arete repetido en la fila de esa cría |
+| `409 BIRTH_TOO_CLOSE` | La madre ya tiene un parto cercano: enlace a ese parto (`birthId`) |
+| `409 OPEN_SERVICE` (parto sin monta) | Ofrecer "Registrar el parto en la monta abierta" (`serviceId`) |
+| `400` | Mostrar el mensaje (por ejemplo, una cría viva sin sexo) |
+
+Listado de partos: `GET /breeding/births`, con filtros por tipo de parto (`litterSize`), fechas e históricos. Marque los históricos con la insignia "Histórico": se reconstruyeron de los datos cargados y no tienen monta.
+
+### 17.6 Pestaña "Reproducción" de la ficha
+
+`GET /animals/:animalId/reproduction` (`reproduction:read`):
+
+- **Resumen:** partos, crías (vivas y totales), partos múltiples, promedio de crías por parto y último parto. En hembras, también la monta abierta: "Preñada de 135 HERCULES, parto probable el 25/09/2026".
+- **Montas:** como madre o padre, con su estado y su enlace.
+- **Partos:** como madre o padre, con las crías enlazadas. Si el animal nació en un parto registrado, muestre "Nació en un parto doble con…" y los hermanos.
+- **Botón "Nueva monta"** en hembras vivas sin monta abierta (`reproduction:write`), con la hembra precargada.
+
+### 17.7 Categoría genética esperada y confirmada
+
+- En listados y fichas, distinga la categoría **esperada** (`geneticCategoryConfirmed: false`) con un estilo diferente, por ejemplo "G1 · esperada" en gris.
+- **Confirmar:** botón en la ficha, con el permiso `animals:confirm-genetic-category`. Abre un diálogo con la categoría (precargada con la esperada, editable si ABSID asignó otra), la fecha, el código de certificado y las observaciones. Envía `POST /animals/:id/genetic-category/confirm`.
+- **Historial:** `GET /animals/:id/genetic-category/history`, como una lista "de → a", con el origen (`GENETIC_CATEGORY_CHANGE_LABEL`), la fecha y el certificado.
+- Editar la categoría en el formulario del animal también la deja confirmada, y queda en el historial como "Editada a mano".
+
+### 17.8 Indicadores
+
+`GET /breeding/stats?species=SHEEP&from=2026-01-01&to=2026-12-31`:
+
+- **Tarjetas:** fertilidad (%), prolificidad (crías por parto), partos múltiples (%), mortalidad al nacer (%) e intervalo entre partos (días).
+- **Gráfico de barras** con los partos por número de crías (`byLitterSize`).
+- **Tabla de machos:** montas, concepciones, partos y crías vivas.
+- Un indicador `null` (sin datos suficientes) se muestra como "—".
+
+---
+
+## 18. Módulo: Datos por revisar
+
+Avisos sobre datos que el personal tiene que verificar y corregir. Por ejemplo, las madres, padres y fechas que no coinciden entre la planilla de montas y el sistema. Referencia en [API.md](API.md#revisión-de-datos).
+
+- **Aviso en la ficha:** en la ficha del animal, del parto y de la monta, `GET /reviews?entityType=…&entityId=…&status=OPEN`. Si hay avisos, se muestra un recuadro ámbar "Datos por revisar" arriba del contenido. Cada aviso muestra:
+  - el tipo (`REVIEW_CATEGORY_LABELS`) y el origen;
+  - el texto, que ya dice qué hacer;
+  - los demás registros involucrados, con su `role` y un enlace a su ficha;
+  - el botón "Marcar como corregido".
+- **Marca en los listados:** `GET /reviews/open-targets?entityType=…`, una sola vez por tipo. Las filas cuyo id aparece llevan la marca "Revisar". Esto aplica a animales, partos y montas.
+- **Menú "Datos por revisar":** todos los avisos, con filtros por estado (pendientes por defecto), tipo y texto. Los corregidos muestran la resolución y el botón "Reabrir".
+- **Marcar como corregido:** abre un diálogo que pide qué se corrigió (de 5 a 1000 caracteres) y envía `POST /reviews/:id/resolve`. Después, invalide las consultas de avisos.
+- Corregir el dato **no** cierra el aviso: el personal corrige en la ficha y luego marca el aviso.
+
+```ts
+export type ReviewCategory = 'PARENTAGE' | 'MISSING_RECORD' | 'DATES' | 'IDENTIFIER' | 'OTHER';
+export type ReviewEntityType = 'ANIMAL' | 'BIRTH' | 'BREEDING_SERVICE';
+
+export interface DataReview {
+  id: Uuid; category: ReviewCategory; message: string; source: string | null;
+  status: 'OPEN' | 'RESOLVED'; resolution: string | null; resolvedAt: DateTime | null; resolvedBy: Uuid | null;
+  targets: { entityType: ReviewEntityType; entityId: Uuid; role: string | null; label: string; exists: boolean }[];
+  createdAt: DateTime; createdBy: Uuid | null; updatedAt: DateTime; updatedBy: Uuid | null;
+}
+
+export const REVIEW_CATEGORY_LABEL: Record<ReviewCategory, string> = {
+  PARENTAGE: 'Madre o padre',
+  MISSING_RECORD: 'Falta un registro',
+  DATES: 'Fechas',
+  IDENTIFIER: 'Identificación',
+  OTHER: 'Otro',
+};
+```
+
+---
+
+## 19. Módulo: Copias de seguridad
 
 `GET /backups/download` (`backups:create`) descarga un `.tar.gz` con **todo el sistema**: la base de datos completa y todas las fotos y certificados. Detalle en [API.md](API.md#get-backupsdownload).
 
@@ -1449,7 +1819,6 @@ Además:
 - **Qué mostrar:** un botón "Descargar copia de seguridad" y un texto que diga que el archivo contiene **datos reales y confidenciales** (usuarios, animales, registro sanitario), y que se debe guardar en un lugar seguro, fuera del servidor.
 - **Puede tardar:** la base se vuelca antes de que empiece la descarga. Mientras tanto, deshabilite el botón y muestre "Generando copia de seguridad...". Con muchas fotos, el archivo puede pesar cientos de MB.
 - **`409`:** ya hay otra copia en curso. Muestre "Ya se está generando una copia de seguridad; espere a que termine".
-- **Restaurar no está en la interfaz:** se hace por terminal en el servidor. No agregue un botón de restaurar.
 
 El endpoint exige el token en la cabecera `Authorization`, así que se descarga con `fetch` + `Blob`, igual que el certificado ([12.6.1](#1261-certificado-del-animal-pdf-generado)). Para respaldos de cientos de MB funciona igual; solo ocupa esa memoria mientras dura la descarga.
 
@@ -1474,9 +1843,31 @@ async function downloadBackup() {
 
 Si el token vence durante una descarga larga, no pasa nada: el token se valida solo al empezar.
 
+### 19.1 Restaurar
+
+Sección en la misma pantalla, visible solo con `backups:restore`. Detalle en [API.md](API.md#restaurar).
+
+1. **Elegir el respaldo:**
+   - **Desde un archivo:** un `<input type="file" accept=".tar.gz">` y el botón "Verificar respaldo", que envía `POST /backups/restore/upload` (FormData, campo `file`). Mientras sube y verifica, muestre "Subiendo y verificando...".
+   - **Desde la carpeta del servidor:** tabla de `GET /backups/files`, con el botón "Preparar" (`POST /backups/restore/server-file`). Es la forma de volver atrás con el respaldo `antes-de-restaurar-…`, y la de restaurar archivos demasiado grandes para subirlos.
+2. **Revisar y confirmar:** con la vista previa, muestre el archivo, **la fecha del respaldo**, quién lo generó, el tamaño de la base y la cantidad de archivos. Si `pendingMigrations` no está vacío, avise que se aplicarán actualizaciones de la base. Agregue también:
+   - una advertencia en rojo: se reemplazan **todos** los datos y se pierde lo cargado después de esa fecha;
+   - un campo "Escriba RESTAURAR para confirmar", con el botón "Restaurar" deshabilitado hasta que coincida;
+   - el botón "Cancelar" (`DELETE /backups/restore/:restoreId`).
+3. **Restaurar:** `POST /backups/restore/:restoreId/confirm`. Puede tardar varios minutos: deshabilite todo y muestre "Restaurando... no cierre esta pestaña".
+4. **Al terminar:** muestre el resultado y el nombre del respaldo previo (`safetyCopy.fileName`). Después, un botón "Volver a ingresar" que limpie la caché de consultas y cierre la sesión: los usuarios y sesiones ahora son los del respaldo.
+
+| Respuesta | Qué mostrar |
+| --- | --- |
+| `400` | El mensaje (archivo dañado, no es un respaldo, palabra incorrecta). |
+| `409 BACKUP_FROM_NEWER_VERSION` | El mensaje: hay que actualizar el sistema antes de restaurar ese respaldo. |
+| `409` | Hay un respaldo en curso: reintente en unos minutos. |
+| `413` | El archivo es demasiado grande para subirlo: cópielo a la carpeta de respaldos del servidor y restáurelo desde allí. |
+| `404` al confirmar | La restauración venció (30 minutos) o se descartó: vuelva al paso 1. |
+
 ---
 
-## 18. Orden sugerido de implementación
+## 20. Orden sugerido de implementación
 
 1. **Base:** cliente HTTP con refresh ([sección 2](#2-cliente-http-tokens-refresh-y-errores)), tipos y etiquetas.
 2. **Autenticación:** login, cambio de contraseña obligatorio, sesión al recargar, logout, guard de rutas.
@@ -1493,6 +1884,7 @@ Si el token vence durante una descarga larga, no pasa nada: el token se valida s
 13. **Productos veterinarios** (catálogo).
 14. **Registro sanitario:** pestaña de sanidad, alta por categoría, aplicación masiva, eventos generales, alerta de retiro.
 15. **Recordatorios** en el inicio.
+16. **Reproducción:** formulario de monta con revisión en vivo, listado por estado, diagnóstico, parto con una fila por cría, pestaña en la ficha, indicadores, confirmación de categoría.
 
 ### Checklist rápido
 
@@ -1509,3 +1901,7 @@ Si el token vence durante una descarga larga, no pasa nada: el token se valida s
 - [ ] Las advertencias de pesaje (`warnings`) se muestran; el pesaje ya está guardado.
 - [ ] La faena maneja `WITHDRAWAL_PERIOD` (y la autorización con permiso); la venta muestra `warnings`.
 - [ ] Los lotes (pesaje y aplicación masiva) marcan las filas de `errors` cuando responden `400`.
+- [ ] El formulario de monta llama a `POST /breeding/check` y muestra bloqueos, avisos y la categoría esperada antes de guardar.
+- [ ] `KINSHIP_CONFLICT` muestra el parentesco y, solo con `canOverride`, la opción de autorizar con justificación.
+- [ ] El parto exige arete y sexo en las crías vivas, y muestra los `warnings` después de guardar.
+- [ ] La categoría esperada se ve distinta de la confirmada en listados y fichas.

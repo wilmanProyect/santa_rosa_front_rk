@@ -4,6 +4,7 @@ import type {
   AnimalDetail,
   AnimalFilters,
   ChangeAnimalStatusRequest,
+  ConfirmGeneticCategoryRequest,
   CreateAnimalRequest,
   UpdateAnimalRequest,
 } from '../types/animal.types'
@@ -13,6 +14,7 @@ export const animalsKeys = {
   lists: ['animals', 'list'] as const,
   list: (filters: AnimalFilters) => [...animalsKeys.lists, filters] as const,
   detail: (id: string) => [...animalsKeys.all, 'detail', id] as const,
+  categoryHistory: (id: string) => [...animalsKeys.all, 'detail', id, 'genetic-category'] as const,
 }
 
 export function useAnimals(filters: AnimalFilters, options: { enabled?: boolean } = {}) {
@@ -83,6 +85,28 @@ export function useUploadCertificate() {
   return useMutation({
     mutationFn: ({ id, file }: { id: string; file: File }) => animalsApi.uploadCertificate(id, file),
     onSuccess: onChanged,
+  })
+}
+
+export function useGeneticCategoryHistory(id: string, options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: animalsKeys.categoryHistory(id),
+    queryFn: () => animalsApi.geneticCategoryHistory(id),
+    enabled: options.enabled,
+  })
+}
+
+/** Al confirmar cambian la ficha (categoría y certificado), su historial y los listados. */
+export function useConfirmGeneticCategory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: ConfirmGeneticCategoryRequest }) =>
+      animalsApi.confirmGeneticCategory(id, body),
+    onSuccess: (_data, { id }) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: animalsKeys.detail(id) }),
+        queryClient.invalidateQueries({ queryKey: animalsKeys.lists }),
+      ]),
   })
 }
 
