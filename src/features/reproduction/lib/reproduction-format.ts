@@ -1,3 +1,6 @@
+import { todayIso } from '@/shared/lib/format'
+import { MAX_SERVICE_DAYS } from '../types/reproduction.types'
+
 /** Consanguinidad (0 a 1) como porcentaje: 0.125 → "12,50 %". */
 export function formatInbreeding(coefficient: number): string {
   return `${(coefficient * 100).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`
@@ -17,4 +20,14 @@ export function daysBetween(a: string, b: string): number {
     return Date.UTC(y, m - 1, d)
   }
   return Math.round((toUtc(b) - toUtc(a)) / 86_400_000)
+}
+
+/** La salida no puede ser futura ni pasar MAX_SERVICE_DAYS del ingreso. */
+export function maxExitDate(serviceDate: string): string {
+  const today = todayIso()
+  if (!serviceDate) return today
+  const limit = new Date(`${serviceDate}T00:00:00Z`)
+  limit.setUTCDate(limit.getUTCDate() + MAX_SERVICE_DAYS)
+  const iso = limit.toISOString().slice(0, 10)
+  return iso < today ? iso : today
 }

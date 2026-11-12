@@ -27,6 +27,7 @@ import { BreedingCheckPanel } from '../components/BreedingCheckPanel'
 import { KinshipDetails } from '../components/KinshipDetails'
 import { OverrideKinshipDialog } from '../components/OverrideKinshipDialog'
 import { useBreedingCheck, useCreateBreedingService } from '../hooks/useReproduction'
+import { maxExitDate } from '../lib/reproduction-format'
 import { REPRODUCTION_ROUTES } from '../routes'
 import {
   REPRODUCTION_ERROR_CODES,
@@ -72,8 +73,8 @@ function BreedingServiceForm({ initialDam }: { initialDam: Dam | null }) {
   const [sire, setSire] = useState<ParentRef | null>(null)
   const [type, setType] = useState<ServiceType>('DIRECTED')
   const [serviceDate, setServiceDate] = useState(todayIso())
+  const [exitDate, setExitDate] = useState('')
   const [strawCode, setStrawCode] = useState('')
-  const [performedBy, setPerformedBy] = useState('')
   const [notes, setNotes] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [overrideOpen, setOverrideOpen] = useState(false)
@@ -121,8 +122,8 @@ function BreedingServiceForm({ initialDam }: { initialDam: Dam | null }) {
         sireId: sire.id,
         type,
         serviceDate,
+        exitDate: isInsemination ? undefined : optional(exitDate),
         strawCode: isInsemination ? optional(strawCode) : undefined,
-        performedBy: optional(performedBy),
         notes: optional(notes),
         ...(override ? { overrideKinship: true, overrideReason: override } : {}),
       },
@@ -220,11 +221,12 @@ function BreedingServiceForm({ initialDam }: { initialDam: Dam | null }) {
 
             <div className="grid-2">
               <TextField
-                label="Fecha de la monta"
+                label={isInsemination ? 'Fecha de la inseminación' : 'Fecha de ingreso'}
                 type="date"
                 required
                 max={todayIso()}
                 value={serviceDate}
+                hint={isInsemination ? undefined : 'Día en que se juntó la pareja. El parto probable se cuenta desde aquí.'}
                 onChange={(e) => setServiceDate(e.target.value)}
               />
               {isInsemination ? (
@@ -235,15 +237,17 @@ function BreedingServiceForm({ initialDam }: { initialDam: Dam | null }) {
                   onChange={(e) => setStrawCode(e.target.value)}
                 />
               ) : (
-                <div />
+                <TextField
+                  label="Fecha de salida"
+                  type="date"
+                  min={serviceDate || undefined}
+                  max={maxExitDate(serviceDate)}
+                  value={exitDate}
+                  hint="Opcional: la monta puede durar 2 o 3 días."
+                  onChange={(e) => setExitDate(e.target.value)}
+                />
               )}
             </div>
-            <TextField
-              label="Quién hizo la monta"
-              maxLength={150}
-              value={performedBy}
-              onChange={(e) => setPerformedBy(e.target.value)}
-            />
             <TextAreaField label="Observaciones" maxLength={1000} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
         </section>

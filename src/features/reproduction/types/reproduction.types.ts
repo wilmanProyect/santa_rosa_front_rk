@@ -33,6 +33,9 @@ export const PREGNANCY_CHECK_RESULT_LABELS: Record<PregnancyCheckResult, string>
   EMPTY: 'Vacía',
 }
 
+/** Días máximos entre el ingreso y la salida (igual que la API). */
+export const MAX_SERVICE_DAYS = 30
+
 export const BIRTH_ASSISTANCE_LABELS: Record<BirthAssistance, string> = {
   NORMAL: 'Normal',
   ASSISTED: 'Asistido',
@@ -141,9 +144,13 @@ export interface BreedingService extends AuditFields {
   sire: BreedingAnimalRef
   species: Species
   type: ServiceType
+  /** Fecha de ingreso; el parto probable se cuenta desde ella. */
   serviceDate: string
+  /** Fecha de salida (la monta puede durar varios días). */
+  exitDate: string | null
   strawCode: string | null
-  performedBy: string | null
+  /** Usuario que registró la monta (automático). */
+  registeredBy: { id: string; username: string; fullName: string } | null
   expectedBirthDate: string
   status: ServiceStatus
   expectedOffspringCategory: GeneticCategory | null
@@ -176,8 +183,8 @@ export interface CreateBreedingServiceRequest {
   sireId: string
   type: ServiceType
   serviceDate: string
+  exitDate?: string
   strawCode?: string
-  performedBy?: string
   notes?: string
   overrideKinship?: boolean
   overrideReason?: string
@@ -186,8 +193,8 @@ export interface CreateBreedingServiceRequest {
 /** La pareja y el tipo no cambian; `null` vacía los opcionales. */
 export interface UpdateBreedingServiceRequest {
   serviceDate?: string
+  exitDate?: string | null
   strawCode?: string | null
-  performedBy?: string | null
   notes?: string | null
 }
 

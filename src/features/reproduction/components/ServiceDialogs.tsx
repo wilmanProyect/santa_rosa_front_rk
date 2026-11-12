@@ -7,6 +7,7 @@ import {
   useRecordAbortion,
   useUpdateBreedingService,
 } from '../hooks/useReproduction'
+import { maxExitDate } from '../lib/reproduction-format'
 import {
   MAX_LITTER_SIZE,
   PREGNANCY_CHECK_METHOD_LABELS,
@@ -202,16 +203,17 @@ function EditServiceForm({ service, closed, onDone }: { service: BreedingService
   const toast = useToast()
   const update = useUpdateBreedingService()
   const [serviceDate, setServiceDate] = useState(service.serviceDate)
+  const [exitDate, setExitDate] = useState(service.exitDate ?? '')
+  const isInsemination = service.type === 'ARTIFICIAL_INSEMINATION'
   const [strawCode, setStrawCode] = useState(service.strawCode ?? '')
-  const [performedBy, setPerformedBy] = useState(service.performedBy ?? '')
   const [notes, setNotes] = useState(service.notes ?? '')
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     const body: UpdateBreedingServiceRequest = {}
     if (!closed && serviceDate !== service.serviceDate) body.serviceDate = serviceDate
+    if (nullable(exitDate) !== service.exitDate) body.exitDate = nullable(exitDate)
     if (nullable(strawCode) !== service.strawCode) body.strawCode = nullable(strawCode)
-    if (nullable(performedBy) !== service.performedBy) body.performedBy = nullable(performedBy)
     if (nullable(notes) !== service.notes) body.notes = nullable(notes)
     if (Object.keys(body).length === 0) {
       onDone()
@@ -234,13 +236,24 @@ function EditServiceForm({ service, closed, onDone }: { service: BreedingService
         {update.isError && <Alert tone="error">{getErrorMessage(update.error)}</Alert>}
         {!closed && (
           <TextField
-            label="Fecha de la monta"
+            label={isInsemination ? 'Fecha de la inseminación' : 'Fecha de ingreso'}
             type="date"
             required
             max={todayIso()}
             value={serviceDate}
             hint="La fecha probable de parto se recalcula."
             onChange={(e) => setServiceDate(e.target.value)}
+          />
+        )}
+        {!isInsemination && (
+          <TextField
+            label="Fecha de salida"
+            type="date"
+            min={serviceDate}
+            max={maxExitDate(serviceDate)}
+            value={exitDate}
+            hint="Opcional. Déjela vacía si no se registró."
+            onChange={(e) => setExitDate(e.target.value)}
           />
         )}
         {service.type === 'ARTIFICIAL_INSEMINATION' && (
@@ -251,12 +264,6 @@ function EditServiceForm({ service, closed, onDone }: { service: BreedingService
             onChange={(e) => setStrawCode(e.target.value)}
           />
         )}
-        <TextField
-          label="Quién hizo la monta"
-          maxLength={150}
-          value={performedBy}
-          onChange={(e) => setPerformedBy(e.target.value)}
-        />
         <TextAreaField label="Observaciones" maxLength={1000} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
       <footer className="dialog__footer">

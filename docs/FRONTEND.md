@@ -759,9 +759,11 @@ export interface BreedingService extends Audit {
   sire: BreedingAnimalRef;
   species: Species;
   type: ServiceType;
-  serviceDate: DateOnly;
+  serviceDate: DateOnly;      // fecha de ingreso
+  exitDate: DateOnly | null;  // fecha de salida
   strawCode: string | null;
-  performedBy: string | null;
+  /** Quién registró la monta (automático, sale de createdBy). */
+  registeredBy: { id: Uuid; username: string; fullName: string } | null;
   expectedBirthDate: DateOnly;
   status: ServiceStatus;
   expectedOffspringCategory: GeneticCategory | null;
@@ -1673,13 +1675,14 @@ Montas, diagnósticos de preñez, abortos y partos. Reglas y respuestas en [API.
 | Paridas | `BIRTHED` |
 | Abortos | `ABORTED` |
 
-- **Columnas:** fecha, hembra, macho (con insignia "Externo"), tipo, estado, fecha probable de parto y categoría esperada de la cría.
+- **Columnas:** ingreso (`serviceDate`), salida (`exitDate`), hembra, macho (con insignia "Externo"), tipo, ecografía, estado, fecha probable de parto y categoría esperada de la cría.
+- **Ecografía:** el último elemento de `checks` (vienen del más antiguo al más reciente): "Preñada · 2 fetos" o "Vacía", con su fecha. Si fue por observación, indíquelo. Sin diagnósticos, "—".
 - **Insignia "Autorizada con parentesco"** cuando `kinshipOverride` no es `null`. El filtro `kinshipOverride=true` sirve para auditarlas.
 - **Filtros:** especie, tipo, rango de fechas y `animalId`. Use un buscador de animales para `animalId`.
 
 ### 17.3 Registrar una monta
 
-Formulario: hembra (buscador de hembras vivas de la cabaña), macho (buscador de machos propios y externos), tipo, fecha, pajuela (solo en inseminación), quién la hizo y observaciones.
+Formulario: hembra (buscador de hembras vivas de la cabaña), macho (buscador de machos propios y externos), tipo, fecha de ingreso, fecha de salida (opcional; la monta puede durar 2 o 3 días; no aplica a la inseminación), pajuela (solo en inseminación) y observaciones. No se pide quién la hizo: el detalle muestra "Registrada por" con el usuario que la cargó.
 
 **Revisión en vivo:** apenas estén elegidos la hembra, el macho, el tipo y la fecha, llame a `POST /breeding/check` (con un *debounce* de 300 ms al cambiar la fecha) y muestre un panel con:
 
@@ -1715,7 +1718,7 @@ Después de guardar, muestre los `warnings` de la respuesta.
 
 - **Diagnóstico:** fecha, método (ecografía u observación), resultado y número de fetos. El número de fetos solo aparece si el resultado es "Preñada".
 - Cada diagnóstico tiene un botón "Eliminar", para corregir errores.
-- **Editar:** solo la fecha, la pajuela, quién la hizo y las observaciones. Para cambiar la pareja hay que eliminar la monta y registrarla de nuevo; dígalo en la pantalla.
+- **Editar:** solo las fechas de ingreso y salida, la pajuela y las observaciones. Para cambiar la pareja hay que eliminar la monta y registrarla de nuevo; dígalo en la pantalla.
 - **Eliminar:** no se ofrece si la monta tiene parto (la API responde `409`).
 
 ### 17.5 Registrar un parto

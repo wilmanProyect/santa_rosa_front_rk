@@ -1412,9 +1412,9 @@ El orden es BASE < G1 < G2 < G3 < G4 < PO. La categoría calculada queda como **
 | `damId` | uuid | Hembra de la cabaña |
 | `sireId` | uuid | Macho propio o externo |
 | `type` | enum | `DIRECTED` (monta dirigida) o `ARTIFICIAL_INSEMINATION` |
-| `serviceDate` | `YYYY-MM-DD` | |
+| `serviceDate` | `YYYY-MM-DD` | **Fecha de ingreso**: el día en que se juntó la pareja (o de la inseminación). El parto probable se cuenta desde ella. |
+| `exitDate` | `YYYY-MM-DD` | Opcional. **Fecha de salida**: la monta puede durar varios días. No anterior al ingreso, no futura y hasta 30 días después del ingreso. |
 | `strawCode` | string ≤ 50 | Código de la pajuela. Solo en inseminación. |
-| `performedBy` | string ≤ 150 | Quién hizo la monta |
 | `notes` | string ≤ 1000 | |
 | `overrideKinship` / `overrideReason` | boolean / string | Ver [Parentesco](#parentesco) |
 
@@ -1425,12 +1425,12 @@ Responde `201` con la [Monta](#monta) y sus `warnings`.
 **Permiso:** `reproduction:read`. Paginado, las más recientes primero. Filtros:
 - `status`, `type`, `species`;
 - `animalId` (como madre o padre), `damId`, `sireId`;
-- `from` / `to` (fecha de la monta);
+- `from` / `to` (fecha de ingreso);
 - `kinshipOverride` (`true`: solo las autorizadas pese al parentesco).
 
 ### `GET` / `PATCH` / `DELETE /breeding/services/:id`
 
-- **`PATCH`:** corrige `serviceDate`, `strawCode`, `performedBy` y `notes` (`null` vacía los opcionales). La pareja y el tipo no cambian: si están mal, elimine la monta y regístrela de nuevo. No se puede cambiar la fecha de una monta con parto o aborto.
+- **`PATCH`:** corrige `serviceDate`, `exitDate`, `strawCode` y `notes` (`null` vacía los opcionales). La pareja y el tipo no cambian: si están mal, elimine la monta y regístrela de nuevo. No se puede cambiar la fecha de ingreso de una monta con parto o aborto; la de salida, sí. Si cambia el ingreso, la salida vigente debe seguir siendo válida (o envíe una nueva).
 - **`DELETE`:** borrado lógico de la monta y sus diagnósticos. Responde `204`, o `409` si la monta tiene parto.
 
 ### Diagnósticos de preñez
@@ -2096,8 +2096,8 @@ AnimalResumen más estos campos:
   "species": "SHEEP",
   "type": "DIRECTED",                    // DIRECTED | ARTIFICIAL_INSEMINATION
   "serviceDate": "2026-05-01",
+  "exitDate": "2026-05-03",            // fecha de salida; null si no se registró
   "strawCode": null,                     // pajuela (inseminación)
-  "performedBy": "Juan Pérez",
   "expectedBirthDate": "2026-09-25",
   "status": "PREGNANT",                  // ver estados de la monta
   "expectedOffspringCategory": "G1",     // calculada al registrar la monta; null si no se calcula
@@ -2111,6 +2111,7 @@ AnimalResumen más estos campos:
   ],
   "notes": null,
   "createdAt": "...", "createdBy": "...", "updatedAt": "...", "updatedBy": "...",
+  "registeredBy": { "id": "...", "username": "admin", "fullName": "Juan Pérez" }, // quién la registró (automático); null si no se conoce
   "warnings": []                         // solo al crear
 }
 ```

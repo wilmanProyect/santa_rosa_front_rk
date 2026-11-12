@@ -187,9 +187,30 @@ function ServiceView({ service }: { service: BreedingService }) {
               <DataItem label="Hembra" value={<AnimalRefLink animal={service.dam} showCategory />} />
               <DataItem label="Macho" value={<AnimalRefLink animal={service.sire} showCategory />} />
               <DataItem label="Tipo" value={SERVICE_TYPE_LABELS[service.type]} />
-              <DataItem label="Fecha" value={formatDate(service.serviceDate)} />
+              <DataItem
+                label={service.type === 'ARTIFICIAL_INSEMINATION' ? 'Fecha' : 'Fecha de ingreso'}
+                value={formatDate(service.serviceDate)}
+              />
+              {service.type !== 'ARTIFICIAL_INSEMINATION' && (
+                <DataItem
+                  label="Fecha de salida"
+                  value={
+                    service.exitDate && (
+                      <>
+                        {formatDate(service.exitDate)}{' '}
+                        <span className="muted small">
+                          ({daysBetween(service.serviceDate, service.exitDate) + 1} día(s) juntos)
+                        </span>
+                      </>
+                    )
+                  }
+                />
+              )}
               <DataItem label="Pajuela" value={service.strawCode} />
-              <DataItem label="Quién la hizo" value={service.performedBy} />
+              <DataItem
+                label="Registrada por"
+                value={service.registeredBy && (service.registeredBy.fullName || service.registeredBy.username)}
+              />
               <DataItem
                 label="Parto probable"
                 value={

@@ -4,7 +4,11 @@ import { ReviewFlag } from '@/features/reviews'
 import { formatDate } from '@/shared/lib/format'
 import { Icon } from '@/shared/ui'
 import { REPRODUCTION_ROUTES } from '../routes'
-import { SERVICE_TYPE_LABELS, type BreedingService } from '../types/reproduction.types'
+import {
+  PREGNANCY_CHECK_RESULT_LABELS,
+  SERVICE_TYPE_LABELS,
+  type BreedingService,
+} from '../types/reproduction.types'
 import { AnimalRefLink, KinshipOverrideBadge, ServiceStatusBadge } from './ReproductionBadges'
 
 interface BreedingServicesTableProps {
@@ -26,10 +30,12 @@ export function BreedingServicesTable({
       <table className="table">
         <thead>
           <tr>
-            <th>Fecha</th>
+            <th>Ingreso</th>
+            <th>Salida</th>
             <th>Hembra</th>
             <th>Macho</th>
             <th>Tipo</th>
+            <th>Ecografía</th>
             <th>Estado</th>
             <th>Parto probable</th>
             <th>Cría esperada</th>
@@ -38,7 +44,7 @@ export function BreedingServicesTable({
         <tbody>
           {services.length === 0 && (
             <tr>
-              <td colSpan={7} className="table__empty">
+              <td colSpan={9} className="table__empty">
                 <div className="empty">
                   <Icon name="heart" size={28} />
                   {emptyMessage}
@@ -57,6 +63,7 @@ export function BreedingServicesTable({
                 <td className="nowrap">
                   {formatDate(s.serviceDate)} <ReviewFlag entityType="BREEDING_SERVICE" entityId={s.id} />
                 </td>
+                <td className="nowrap">{s.exitDate ? formatDate(s.exitDate) : <span className="muted">—</span>}</td>
                 <td>
                   <AnimalRefLink animal={s.dam} showCategory stopPropagation />
                 </td>
@@ -68,15 +75,13 @@ export function BreedingServicesTable({
                   {s.strawCode && <div className="muted small">Pajuela {s.strawCode}</div>}
                 </td>
                 <td>
+                  <CheckSummary service={s} />
+                </td>
+                <td>
                   <div className="row" style={{ gap: 6 }}>
                     <ServiceStatusBadge status={s.status} />
                     {s.kinshipOverride && <KinshipOverrideBadge />}
                   </div>
-                  {s.expectedFetusCount && open && (
-                    <div className="muted small">
-                      {s.expectedFetusCount} {s.expectedFetusCount === 1 ? 'feto' : 'fetos'}
-                    </div>
-                  )}
                 </td>
                 <td className="nowrap">{open ? formatDate(s.expectedBirthDate) : <span className="muted">—</span>}</td>
                 <td>
@@ -91,6 +96,22 @@ export function BreedingServicesTable({
           })}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+/** Último diagnóstico de preñez (ecografía u observación). */
+function CheckSummary({ service }: { service: BreedingService }) {
+  const last = service.checks.at(-1)
+  if (!last) return <span className="muted">—</span>
+  return (
+    <div className="nowrap">
+      {PREGNANCY_CHECK_RESULT_LABELS[last.result]}
+      {last.fetusCount && ` · ${last.fetusCount} ${last.fetusCount === 1 ? 'feto' : 'fetos'}`}
+      <div className="muted small">
+        {formatDate(last.checkedAt)}
+        {last.method === 'OBSERVATION' && ' · observación'}
+      </div>
     </div>
   )
 }
