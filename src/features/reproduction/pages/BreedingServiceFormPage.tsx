@@ -15,12 +15,14 @@ import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import { optional, todayIso } from '@/shared/lib/format'
 import {
   Alert,
+  BackLink,
   Button,
   Icon,
   PageHeader,
   Spinner,
   TextAreaField,
   TextField,
+  useGoBack,
   useToast,
 } from '@/shared/ui'
 import { BreedingCheckPanel } from '../components/BreedingCheckPanel'
@@ -65,6 +67,7 @@ export function BreedingServiceFormPage() {
 
 function BreedingServiceForm({ initialDam }: { initialDam: Dam | null }) {
   const navigate = useNavigate()
+  const goBack = useGoBack(REPRODUCTION_ROUTES.services)
   const toast = useToast()
   const { can } = useAuth()
   const create = useCreateBreedingService()
@@ -153,9 +156,7 @@ function BreedingServiceForm({ initialDam }: { initialDam: Dam | null }) {
     <>
       <PageHeader
         eyebrow={
-          <Link to={REPRODUCTION_ROUTES.services}>
-            <Icon name="arrowLeft" size={14} /> Montas
-          </Link>
+          <BackLink to={REPRODUCTION_ROUTES.services}>Montas</BackLink>
         }
         title="Registrar monta"
         description="Elija la hembra y el macho: el sistema revisa el parentesco, la monta abierta y la categoría de la cría."
@@ -286,7 +287,7 @@ function BreedingServiceForm({ initialDam }: { initialDam: Dam | null }) {
           )}
 
           <div className="row" style={{ justifyContent: 'flex-end' }}>
-            <Button variant="secondary" onClick={() => navigate(REPRODUCTION_ROUTES.services)}>
+            <Button variant="secondary" onClick={goBack}>
               Cancelar
             </Button>
             {needsOverride && canOverride ? (

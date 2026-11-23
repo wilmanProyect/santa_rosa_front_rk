@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router'
 import { AnimalPicker, animalLabel, type AnimalSummary, type BatchItemError, type Species } from '@/features/animals'
 import { ApiError, getErrorMessage } from '@/shared/api/api-error'
 import { formatDate, optional } from '@/shared/lib/format'
-import { Alert, Button, Icon, PageHeader, useToast } from '@/shared/ui'
+import { Alert, BackLink, Button, Icon, PageHeader, useToast } from '@/shared/ui'
 import { HealthFields } from '../components/HealthFields'
 import { useBatchHealthRecords } from '../hooks/useHealth'
 import { buildHealthFields, emptyHealthForm, validateHealthForm } from '../lib/health-form'
@@ -83,9 +82,7 @@ export function HealthBatchPage() {
     <form onSubmit={handleSubmit}>
       <PageHeader
         eyebrow={
-          <Link to={HEALTH_ROUTES.records}>
-            <Icon name="arrowLeft" size={14} /> Registro sanitario
-          </Link>
+          <BackLink to={HEALTH_ROUTES.records}>Registro sanitario</BackLink>
         }
         title="Aplicación masiva"
         description="El mismo evento (vacunación, desparasitación, esquila…) para un lote de animales. Si un animal tiene un problema, no se guarda ninguno: corrija lo marcado y vuelva a guardar."

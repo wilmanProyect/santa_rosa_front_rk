@@ -12,6 +12,7 @@ import type {
   CreatePregnancyCheckRequest,
   PregnancyCheck,
   RecordAbortionRequest,
+  RecordDamDeathRequest,
   RegisterBirthRequest,
   RegisterUnplannedBirthRequest,
   ReproductionStats,
@@ -47,6 +48,11 @@ export const breedingApi = {
     http<BreedingService>(`/breeding/services/${id}/abortion`, { method: 'POST', body }),
   cancelAbortion: (id: string) =>
     http<BreedingService>(`/breeding/services/${id}/abortion`, { method: 'DELETE' }),
+
+  recordDamDeath: (id: string, body: RecordDamDeathRequest) =>
+    http<BreedingService>(`/breeding/services/${id}/dam-death`, { method: 'POST', body }),
+  cancelDamDeath: (id: string) =>
+    http<BreedingService>(`/breeding/services/${id}/dam-death`, { method: 'DELETE' }),
 }
 
 export const birthsApi = {

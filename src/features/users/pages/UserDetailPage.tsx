@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { LoginHistoryTable } from '@/features/audit'
 import { useAuth } from '@/features/auth'
 import { getErrorMessage } from '@/shared/api/api-error'
@@ -7,11 +7,11 @@ import { PERMISSIONS } from '@/shared/config/permissions'
 import { formatDate, formatDateTime, initials } from '@/shared/lib/format'
 import {
   Alert,
+  BackLink as SharedBackLink,
   Badge,
   Button,
   ConfirmDialog,
   DataItem,
-  Icon,
   PageHeader,
   Spinner,
   Tabs,
@@ -48,11 +48,7 @@ export function UserDetailPage() {
 }
 
 function BackLink() {
-  return (
-    <Link to={USERS_ROUTES.list}>
-      <Icon name="arrowLeft" size={14} /> Usuarios
-    </Link>
-  )
+  return <SharedBackLink to={USERS_ROUTES.list}>Usuarios</SharedBackLink>
 }
 
 function UserDetailView({ user }: { user: UserDetail }) {

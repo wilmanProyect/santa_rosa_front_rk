@@ -708,7 +708,7 @@ export interface Reminders {
 
 // ---------- Reproducción ----------
 export type ServiceType = 'DIRECTED' | 'ARTIFICIAL_INSEMINATION';
-export type ServiceStatus = 'PENDING' | 'PREGNANT' | 'EMPTY' | 'BIRTHED' | 'ABORTED';
+export type ServiceStatus = 'PENDING' | 'PREGNANT' | 'EMPTY' | 'BIRTHED' | 'ABORTED' | 'DAM_DIED';
 export type PregnancyCheckMethod = 'ULTRASOUND' | 'OBSERVATION';
 export type PregnancyCheckResult = 'PREGNANT' | 'EMPTY';
 export type BirthAssistance = 'NORMAL' | 'ASSISTED' | 'CESAREAN';
@@ -771,6 +771,15 @@ export interface BreedingService extends Audit {
   inbreedingCoefficient: number;
   kinshipOverride: { reason: string; authorizedBy: Uuid; authorizedAt: DateTime } | null;
   abortion: { date: DateOnly; cause: string | null } | null;
+  /** La madre murió durante la gestación (status DAM_DIED). */
+  damDeath: {
+    date: DateOnly;
+    cause: string | null;
+    /** El último diagnóstico era "preñada". */
+    confirmedPregnancy: boolean;
+    /** Fetos de esa ecografía; null si no se contaron. */
+    lostFetuses: number | null;
+  } | null;
   checks: PregnancyCheck[];
   notes: string | null;
   /** Solo al crear. */
@@ -943,6 +952,7 @@ export const SERVICE_STATUS_LABEL: Record<ServiceStatus, string> = {
   EMPTY: 'Vacía',
   BIRTHED: 'Parió',
   ABORTED: 'Abortó',
+  DAM_DIED: 'Madre muerta',
 };
 
 export const PREGNANCY_CHECK_METHOD_LABEL: Record<PregnancyCheckMethod, string> = {
@@ -1674,6 +1684,7 @@ Montas, diagnósticos de preñez, abortos y partos. Reglas y respuestas en [API.
 | Vacías | `EMPTY` |
 | Paridas | `BIRTHED` |
 | Abortos | `ABORTED` |
+| Madre muerta | `DAM_DIED` |
 
 - **Columnas:** ingreso (`serviceDate`), salida (`exitDate`), hembra, macho (con insignia "Externo"), tipo, ecografía, estado, fecha probable de parto y categoría esperada de la cría.
 - **Ecografía:** el último elemento de `checks` (vienen del más antiguo al más reciente): "Preñada · 2 fetos" o "Vacía", con su fecha. Si fue por observación, indíquelo. Sin diagnósticos, "—".
@@ -1712,14 +1723,25 @@ Después de guardar, muestre los `warnings` de la respuesta.
 
 | Estado | Acciones |
 | --- | --- |
-| Sin diagnóstico, Preñada o Vacía | Registrar diagnóstico · Registrar aborto (no en Vacía) · Registrar parto · Editar · Eliminar |
+| Sin diagnóstico o Preñada | Registrar diagnóstico · Registrar aborto · **Registrar muerte de la madre** · Registrar parto · Editar · Eliminar |
+| Vacía | Registrar diagnóstico · Registrar parto · Editar · Eliminar |
 | Parió | Ver parto · Editar observaciones |
 | Abortó | Anular aborto · Editar observaciones |
+| Madre muerta | Anular muerte · Editar observaciones |
 
 - **Diagnóstico:** fecha, método (ecografía u observación), resultado y número de fetos. El número de fetos solo aparece si el resultado es "Preñada".
 - Cada diagnóstico tiene un botón "Eliminar", para corregir errores.
 - **Editar:** solo las fechas de ingreso y salida, la pajuela y las observaciones. Para cambiar la pareja hay que eliminar la monta y registrarla de nuevo; dígalo en la pantalla.
 - **Eliminar:** no se ofrece si la monta tiene parto (la API responde `409`).
+
+#### Muerte de la madre durante la gestación
+
+- **Botón "Registrar muerte de la madre"**, solo en Sin diagnóstico o Preñada, y solo si el usuario tiene `reproduction:write` **y** `animals:change-status`.
+- **Diálogo:** fecha (obligatoria, no futura) y causa (opcional). Antes de confirmar, avise: *"La hembra pasará a **Muerto** en el inventario."* Si `expectedFetusCount` tiene valor, agregue: *"Se registrarán N fetos perdidos."*
+- **Envío:** `POST /breeding/services/:id/dam-death`. La respuesta es la monta actualizada (`status: 'DAM_DIED'`). Invalide también las consultas del animal (ficha, inventario), porque su estado cambió.
+- **En la ficha:** muestre una franja con la fecha, la causa y, si `damDeath.lostFetuses` tiene valor, "N fetos perdidos". Si `confirmedPregnancy` es `false`, aclare "sin preñez confirmada".
+- **"Anular muerte":** confirme con *"La hembra volverá a estar Viva en el inventario."* y envíe `DELETE /breeding/services/:id/dam-death`.
+- Si la muerte se registra desde el inventario ("Registrar salida → Muerto") y la hembra tiene una monta abierta, la API cierra la monta sola. Si la fecha es anterior a la monta, la API responde `400` con un mensaje que lo explica: muéstrelo en el formulario de salida.
 
 ### 17.5 Registrar un parto
 
@@ -1772,6 +1794,7 @@ Listado de partos: `GET /breeding/births`, con filtros por tipo de parto (`litte
 `GET /breeding/stats?species=SHEEP&from=2026-01-01&to=2026-12-31`:
 
 - **Tarjetas:** fertilidad (%), prolificidad (crías por parto), partos múltiples (%), mortalidad al nacer (%) e intervalo entre partos (días).
+- **Madres muertas en gestación:** `services.damDeaths.total`, con el detalle de preñez confirmada (`confirmedPregnant`) y fetos perdidos (`lostFetuses`).
 - **Gráfico de barras** con los partos por número de crías (`byLitterSize`).
 - **Tabla de machos:** montas, concepciones, partos y crías vivas.
 - Un indicador `null` (sin datos suficientes) se muestra como "—".

@@ -15,6 +15,7 @@ const STATUS_TONE: Record<ServiceStatus, 'neutral' | 'success' | 'warning' | 'in
   EMPTY: 'warning',
   BIRTHED: 'info',
   ABORTED: 'danger',
+  DAM_DIED: 'danger',
 }
 
 export function ServiceStatusBadge({ status }: { status: ServiceStatus }) {

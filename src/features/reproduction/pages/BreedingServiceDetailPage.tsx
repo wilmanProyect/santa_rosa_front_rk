@@ -5,14 +5,15 @@ import { useAuth } from '@/features/auth'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { PERMISSIONS } from '@/shared/config/permissions'
 import { formatDate, formatDateTime, todayIso } from '@/shared/lib/format'
-import { Alert, Button, ConfirmDialog, DataItem, Icon, PageHeader, Spinner, useToast } from '@/shared/ui'
+import { Alert, BackLink as SharedBackLink, Button, ConfirmDialog, DataItem, Icon, PageHeader, Spinner, useToast } from '@/shared/ui'
 import { ReviewBanner } from '@/features/reviews'
 import { AnimalRefLink, KinshipOverrideBadge, ServiceStatusBadge } from '../components/ReproductionBadges'
-import { AbortionDialog, EditServiceDialog, PregnancyCheckDialog } from '../components/ServiceDialogs'
+import { AbortionDialog, DamDeathDialog, EditServiceDialog, PregnancyCheckDialog } from '../components/ServiceDialogs'
 import {
   useBirths,
   useBreedingService,
   useCancelAbortion,
+  useCancelDamDeath,
   useDeleteBreedingService,
   useRemovePregnancyCheck,
 } from '../hooks/useReproduction'
@@ -27,14 +28,10 @@ import {
 } from '../types/reproduction.types'
 import './reproduction.css'
 
-type DialogId = 'check' | 'abortion' | 'edit' | 'delete' | 'cancel-abortion' | null
+type DialogId = 'check' | 'abortion' | 'edit' | 'delete' | 'cancel-abortion' | 'dam-death' | 'cancel-dam-death' | null
 
 function BackLink() {
-  return (
-    <Link to={REPRODUCTION_ROUTES.services}>
-      <Icon name="arrowLeft" size={14} /> Montas
-    </Link>
-  )
+  return <SharedBackLink to={REPRODUCTION_ROUTES.services}>Montas</SharedBackLink>
 }
 
 export function BreedingServiceDetailPage() {
@@ -61,10 +58,12 @@ function ServiceView({ service }: { service: BreedingService }) {
   const [removingCheck, setRemovingCheck] = useState<PregnancyCheck | null>(null)
   const remove = useDeleteBreedingService()
   const cancelAbortion = useCancelAbortion()
+  const cancelDamDeath = useCancelDamDeath()
   const removeCheck = useRemovePregnancyCheck()
 
   const canWrite = can(PERMISSIONS.REPRODUCTION_WRITE)
   const canRegisterBirth = can(PERMISSIONS.REPRODUCTION_WRITE, PERMISSIONS.ANIMALS_CREATE)
+  const canRecordDamDeath = can(PERMISSIONS.REPRODUCTION_WRITE, PERMISSIONS.ANIMALS_CHANGE_STATUS)
   const { status } = service
   const inProgress = status === 'PENDING' || status === 'PREGNANT' || status === 'EMPTY'
   const today = todayIso()
@@ -125,6 +124,22 @@ function ServiceView({ service }: { service: BreedingService }) {
                   Anular aborto
                 </Button>
               )}
+              {(status === 'PENDING' || status === 'PREGNANT') && canRecordDamDeath && (
+                <Button variant="secondary" icon="alert" onClick={() => setDialog('dam-death')}>
+                  Registrar muerte de la madre
+                </Button>
+              )}
+              {status === 'DAM_DIED' && canRecordDamDeath && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    cancelDamDeath.reset()
+                    setDialog('cancel-dam-death')
+                  }}
+                >
+                  Anular muerte
+                </Button>
+              )}
               <Button variant="secondary" icon="edit" onClick={() => setDialog('edit')}>
                 {inProgress ? 'Editar' : 'Editar observaciones'}
               </Button>
@@ -175,6 +190,22 @@ function ServiceView({ service }: { service: BreedingService }) {
           <Alert tone="error">
             <strong>Abortó el {formatDate(service.abortion.date)}</strong>
             {service.abortion.cause && <> · {service.abortion.cause}</>}
+          </Alert>
+        )}
+        {service.damDeath && (
+          <Alert tone="error">
+            <strong>La madre murió el {formatDate(service.damDeath.date)}</strong>
+            {service.damDeath.cause && <> · {service.damDeath.cause}</>}
+            <div>
+              {service.damDeath.confirmedPregnancy ? 'Con preñez confirmada' : 'Sin preñez confirmada'}
+              {service.damDeath.lostFetuses !== null && (
+                <>
+                  {' · '}
+                  {service.damDeath.lostFetuses} {service.damDeath.lostFetuses === 1 ? 'feto perdido' : 'fetos perdidos'}
+                </>
+              )}
+              .
+            </div>
           </Alert>
         )}
 
@@ -314,7 +345,26 @@ function ServiceView({ service }: { service: BreedingService }) {
 
       <PregnancyCheckDialog open={dialog === 'check'} service={service} onClose={() => setDialog(null)} />
       <AbortionDialog open={dialog === 'abortion'} service={service} onClose={() => setDialog(null)} />
+      <DamDeathDialog open={dialog === 'dam-death'} service={service} onClose={() => setDialog(null)} />
       <EditServiceDialog open={dialog === 'edit'} service={service} onClose={() => setDialog(null)} />
+      <ConfirmDialog
+        open={dialog === 'cancel-dam-death'}
+        title="Anular muerte de la madre"
+        message="Use esta opción solo si la muerte se registró por error. La hembra volverá a estar Viva en el inventario y la monta vuelve al estado de su último diagnóstico."
+        confirmLabel="Anular muerte"
+        tone="primary"
+        loading={cancelDamDeath.isPending}
+        error={cancelDamDeath.isError ? getErrorMessage(cancelDamDeath.error) : null}
+        onClose={() => setDialog(null)}
+        onConfirm={() =>
+          cancelDamDeath.mutate(service.id, {
+            onSuccess: () => {
+              toast.show('Muerte de la madre anulada')
+              setDialog(null)
+            },
+          })
+        }
+      />
       <ConfirmDialog
         open={dialog === 'delete'}
         title="Eliminar monta"

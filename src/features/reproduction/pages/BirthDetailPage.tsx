@@ -8,11 +8,11 @@ import { PERMISSIONS } from '@/shared/config/permissions'
 import { formatDate, formatDateTime, formatKg, nullable } from '@/shared/lib/format'
 import {
   Alert,
+  BackLink as SharedBackLink,
   Badge,
   Button,
   DataItem,
   Dialog,
-  Icon,
   PageHeader,
   SelectField,
   Spinner,
@@ -31,11 +31,7 @@ import {
 import './reproduction.css'
 
 function BackLink() {
-  return (
-    <Link to={REPRODUCTION_ROUTES.births}>
-      <Icon name="arrowLeft" size={14} /> Partos
-    </Link>
-  )
+  return <SharedBackLink to={REPRODUCTION_ROUTES.births}>Partos</SharedBackLink>
 }
 
 export function BirthDetailPage() {

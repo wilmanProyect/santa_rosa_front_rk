@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { useAuth } from '@/features/auth'
 import { ReviewBanner } from '@/features/reviews'
 import { getErrorMessage } from '@/shared/api/api-error'
@@ -7,11 +7,11 @@ import { PERMISSIONS } from '@/shared/config/permissions'
 import { formatAge, formatDate, formatDateTime, formatKg } from '@/shared/lib/format'
 import {
   Alert,
+  BackLink as SharedBackLink,
   Badge,
   Button,
   ConfirmDialog,
   DataItem,
-  Icon,
   PageHeader,
   Spinner,
   Tabs,
@@ -72,9 +72,9 @@ export function AnimalDetailPage({ extraTabs = [] }: { extraTabs?: AnimalExtraTa
 
 function BackLink({ external }: { external?: boolean }) {
   return (
-    <Link to={external ? `${ANIMALS_ROUTES.list}?vista=externos` : ANIMALS_ROUTES.list}>
-      <Icon name="arrowLeft" size={14} /> {external ? 'Reproductores externos' : 'Animales'}
-    </Link>
+    <SharedBackLink to={external ? `${ANIMALS_ROUTES.list}?vista=externos` : ANIMALS_ROUTES.list}>
+      {external ? 'Reproductores externos' : 'Animales'}
+    </SharedBackLink>
   )
 }
 
@@ -256,8 +256,12 @@ function AnimalData({ animal }: { animal: AnimalDetail }) {
       </Card>
 
       <Card title="Registros">
-        <DataItem label="Registro ABSID" value={animal.absidRegistry} />
-        <DataItem label="Registro externo" value={animal.externalRegistry} />
+        {/* El registro externo de un reproductor externo es su ABSID: se muestra uno u otro. */}
+        {animal.isExternal ? (
+          <DataItem label="Registro externo" value={animal.externalRegistry} />
+        ) : (
+          <DataItem label="Registro ABSID" value={animal.absidRegistry} />
+        )}
       </Card>
 
       <GeneticCategoryCard animal={animal} />

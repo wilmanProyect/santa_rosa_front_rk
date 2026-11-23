@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { useAreas } from '@/features/areas'
 import { useAuth } from '@/features/auth'
 import { getErrorMessage } from '@/shared/api/api-error'
@@ -7,15 +7,16 @@ import { PERMISSIONS } from '@/shared/config/permissions'
 import { formatDateTime } from '@/shared/lib/format'
 import {
   Alert,
+  BackLink,
   Badge,
   Button,
   ConfirmDialog,
-  Icon,
   PageHeader,
   SelectField,
   Spinner,
   TextAreaField,
   TextField,
+  useGoBack,
   useToast,
 } from '@/shared/ui'
 import { PermissionPicker } from '../components/PermissionPicker'
@@ -45,6 +46,7 @@ export function RoleEditorPage() {
 
 function RoleEditor({ role, catalog }: { role: Role | null; catalog: Permission[] }) {
   const navigate = useNavigate()
+  const goBack = useGoBack(ROLES_ROUTES.list)
   const toast = useToast()
   const { can } = useAuth()
   const { data: areas } = useAreas()
@@ -107,9 +109,7 @@ function RoleEditor({ role, catalog }: { role: Role | null; catalog: Permission[
     <form onSubmit={handleSubmit}>
       <PageHeader
         eyebrow={
-          <Link to={ROLES_ROUTES.list}>
-            <Icon name="arrowLeft" size={14} /> Roles y permisos
-          </Link>
+          <BackLink to={ROLES_ROUTES.list}>Roles y permisos</BackLink>
         }
         title={
           <span className="row" style={{ gap: 12 }}>
@@ -243,7 +243,7 @@ function RoleEditor({ role, catalog }: { role: Role | null; catalog: Permission[
           </div>
           {!readOnly && (
             <footer className="card__footer">
-              <Button variant="secondary" onClick={() => navigate(ROLES_ROUTES.list)}>
+              <Button variant="secondary" onClick={goBack}>
                 Cancelar
               </Button>
               <Button type="submit" icon="check" loading={mutation.isPending}>

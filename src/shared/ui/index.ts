@@ -1,4 +1,5 @@
 export { Alert } from './Alert'
+export { BackLink, useGoBack, useHasAppHistory } from './BackLink'
 export { Badge } from './Badge'
 export { BrandLogo } from './brand/BrandLogo'
 export { Button } from './Button'

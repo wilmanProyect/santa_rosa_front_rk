@@ -10,6 +10,7 @@ import type {
   CreateBreedingServiceRequest,
   CreatePregnancyCheckRequest,
   RecordAbortionRequest,
+  RecordDamDeathRequest,
   RegisterBirthRequest,
   RegisterUnplannedBirthRequest,
   ReproductionStatsFilters,
@@ -182,6 +183,33 @@ export function useCancelAbortion() {
   const onChanged = useOnServiceChanged()
   return useMutation({
     mutationFn: (serviceId: string) => breedingApi.cancelAbortion(serviceId),
+    onSuccess: onChanged,
+  })
+}
+
+/** La muerte de la madre cambia también su estado en el inventario (ficha y listados). */
+function useOnDamStatusChanged() {
+  const queryClient = useQueryClient()
+  const invalidate = useInvalidateReproduction()
+  return (service: BreedingService) => {
+    queryClient.setQueryData(reproductionKeys.service(service.id), service)
+    return invalidate({ animals: true })
+  }
+}
+
+export function useRecordDamDeath() {
+  const onChanged = useOnDamStatusChanged()
+  return useMutation({
+    mutationFn: ({ serviceId, body }: { serviceId: string; body: RecordDamDeathRequest }) =>
+      breedingApi.recordDamDeath(serviceId, body),
+    onSuccess: onChanged,
+  })
+}
+
+export function useCancelDamDeath() {
+  const onChanged = useOnDamStatusChanged()
+  return useMutation({
+    mutationFn: (serviceId: string) => breedingApi.cancelDamDeath(serviceId),
     onSuccess: onChanged,
   })
 }

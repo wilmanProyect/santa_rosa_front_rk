@@ -4,6 +4,7 @@ import { ApiError, getErrorMessage } from '@/shared/api/api-error'
 import { formatKg, optional, todayIso } from '@/shared/lib/format'
 import {
   Alert,
+  BackLink,
   Button,
   Icon,
   PageHeader,
@@ -107,9 +108,7 @@ export function WeighingBatchPage() {
     <form onSubmit={handleSubmit}>
       <PageHeader
         eyebrow={
-          <Link to={ANIMALS_ROUTES.list}>
-            <Icon name="arrowLeft" size={14} /> Animales
-          </Link>
+          <BackLink to={ANIMALS_ROUTES.list}>Animales</BackLink>
         }
         title="Jornada de pesaje"
         description="Registre el peso de varios animales con la misma fecha y motivo. Si un animal tiene un problema, no se guarda ninguno: corrija lo marcado y vuelva a guardar."

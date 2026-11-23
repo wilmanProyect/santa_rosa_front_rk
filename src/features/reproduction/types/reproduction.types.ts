@@ -3,7 +3,7 @@ import type { AuditFields, PaginationParams } from '@/shared/types/api.types'
 
 // ---------- Valores fijos ----------
 export type ServiceType = 'DIRECTED' | 'ARTIFICIAL_INSEMINATION'
-export type ServiceStatus = 'PENDING' | 'PREGNANT' | 'EMPTY' | 'BIRTHED' | 'ABORTED'
+export type ServiceStatus = 'PENDING' | 'PREGNANT' | 'EMPTY' | 'BIRTHED' | 'ABORTED' | 'DAM_DIED'
 export type PregnancyCheckMethod = 'ULTRASOUND' | 'OBSERVATION'
 export type PregnancyCheckResult = 'PREGNANT' | 'EMPTY'
 export type BirthAssistance = 'NORMAL' | 'ASSISTED' | 'CESAREAN'
@@ -21,6 +21,7 @@ export const SERVICE_STATUS_LABELS: Record<ServiceStatus, string> = {
   EMPTY: 'Vacía',
   BIRTHED: 'Parió',
   ABORTED: 'Abortó',
+  DAM_DIED: 'Madre muerta',
 }
 
 export const PREGNANCY_CHECK_METHOD_LABELS: Record<PregnancyCheckMethod, string> = {
@@ -158,6 +159,8 @@ export interface BreedingService extends AuditFields {
   inbreedingCoefficient: number
   kinshipOverride: { reason: string; authorizedBy: string; authorizedAt: string } | null
   abortion: { date: string; cause: string | null } | null
+  /** La madre murió durante la gestación (status DAM_DIED). */
+  damDeath: DamDeath | null
   checks: PregnancyCheck[]
   notes: string | null
   /** Solo al crear. */
@@ -209,6 +212,17 @@ export interface CreatePregnancyCheckRequest {
 export interface RecordAbortionRequest {
   date: string
   cause?: string
+}
+
+export type RecordDamDeathRequest = RecordAbortionRequest
+
+export interface DamDeath {
+  date: string
+  cause: string | null
+  /** El último diagnóstico era "preñada". */
+  confirmedPregnancy: boolean
+  /** Fetos de esa ecografía; null si no se contaron. */
+  lostFetuses: number | null
 }
 
 /** Cuerpo del 409 KINSHIP_CONFLICT al guardar una monta. */
@@ -315,6 +329,8 @@ export interface ReproductionStats {
     conceptions: number
     kinshipOverrides: number
     byStatus: Record<ServiceStatus, number>
+    /** Madres muertas durante la gestación. */
+    damDeaths: { total: number; confirmedPregnant: number; lostFetuses: number }
     byType: Record<ServiceType, number>
   }
   births: {

@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { useSearchParams } from 'react-router'
 import { getErrorMessage } from '@/shared/api/api-error'
 import {
   Alert,
+  BackLink,
   Badge,
   Button,
   ConfirmDialog,
@@ -31,9 +32,7 @@ export function CatalogsPage() {
     <>
       <PageHeader
         eyebrow={
-          <Link to={ANIMALS_ROUTES.list}>
-            <Icon name="arrowLeft" size={14} /> Animales
-          </Link>
+          <BackLink to={ANIMALS_ROUTES.list}>Animales</BackLink>
         }
         title="Razas y colores"
         description="Catálogos para el registro de animales. Lo que está en uso no se elimina: se desactiva."

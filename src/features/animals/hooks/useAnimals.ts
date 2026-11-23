@@ -60,12 +60,26 @@ export function useUpdateAnimal() {
   })
 }
 
+/**
+ * Claves de `reproduction` y de los recordatorios. Se repiten aquí para no depender de esas
+ * features: registrar la muerte de una hembra cierra su monta abierta (DAM_DIED), y
+ * corregir el estado la reabre.
+ */
+const REPRODUCTION_KEY = ['reproduction'] as const
+const REMINDERS_KEY = ['reminders'] as const
+
 export function useChangeAnimalStatus() {
+  const queryClient = useQueryClient()
   const onChanged = useOnAnimalChanged()
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: ChangeAnimalStatusRequest }) =>
       animalsApi.changeStatus(id, body),
-    onSuccess: onChanged,
+    onSuccess: (animal) =>
+      Promise.all([
+        onChanged(animal),
+        queryClient.invalidateQueries({ queryKey: REPRODUCTION_KEY }),
+        queryClient.invalidateQueries({ queryKey: REMINDERS_KEY }),
+      ]),
   })
 }
 

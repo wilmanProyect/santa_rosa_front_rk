@@ -254,6 +254,8 @@ Los define el sistema en [`permission-catalog.ts`](../src/modules/roles-permissi
 | `DELETE` | [`/breeding/services/:id/pregnancy-checks/:checkId`](#diagnósticos-de-preñez) | `reproduction:write` |
 | `POST` | [`/breeding/services/:id/abortion`](#aborto) | `reproduction:write` |
 | `DELETE` | [`/breeding/services/:id/abortion`](#aborto) | `reproduction:write` |
+| `POST` | [`/breeding/services/:id/dam-death`](#muerte-de-la-madre-durante-la-gestación) | `reproduction:write` + `animals:change-status` |
+| `DELETE` | [`/breeding/services/:id/dam-death`](#muerte-de-la-madre-durante-la-gestación) | `reproduction:write` + `animals:change-status` |
 | `POST` | [`/breeding/services/:id/birth`](#post-breedingservicesidbirth) | `reproduction:write` + `animals:create` |
 | `POST` | [`/breeding/births`](#post-breedingbirths) | `reproduction:write` + `animals:create` |
 | `GET` | [`/breeding/births`](#get-breedingbirths) | `reproduction:read` |
@@ -1321,8 +1323,9 @@ Ciclo de cada hembra: **monta → diagnóstico de preñez → parto** (o aborto,
 | `EMPTY` | Último diagnóstico: vacía |
 | `BIRTHED` | Parió |
 | `ABORTED` | Abortó |
+| `DAM_DIED` | La madre murió durante la gestación |
 
-El sistema actualiza el estado con cada diagnóstico, aborto o parto. Una hembra tiene **una sola monta abierta** (`PENDING` o `PREGNANT`) a la vez.
+El sistema actualiza el estado con cada diagnóstico, aborto, parto o muerte de la madre. Una hembra tiene **una sola monta abierta** (`PENDING` o `PREGNANT`) a la vez.
 
 **Gestación:** 147 días en ovinos y 150 en caprinos (`expectedBirthDate`). Un parto fuera de los 140 a 160 días desde la monta se registra con un aviso.
 
@@ -1454,6 +1457,20 @@ Responde `201` con `{ check, service }`. El estado de la monta sigue al diagnós
 - `POST /breeding/services/:id/abortion` con `{ "date": "YYYY-MM-DD", "cause": "..." }` (`cause` es opcional): la monta pasa a `ABORTED`.
 - `DELETE /breeding/services/:id/abortion` lo anula si se registró por error.
 
+### Muerte de la madre durante la gestación
+
+**Permisos:** `reproduction:write` y `animals:change-status`.
+
+- `POST /breeding/services/:id/dam-death` con `{ "date": "YYYY-MM-DD", "cause": "..." }` (`cause` es opcional). **En la misma transacción**:
+  - la monta pasa a `DAM_DIED` y queda cerrada: no admite diagnósticos, aborto ni parto;
+  - la hembra pasa a `DEAD` en el inventario, con esa fecha y la causa como motivo.
+- Solo en una monta abierta (`PENDING` o `PREGNANT`). Si la monta está vacía, parió o abortó, la muerte se registra en el inventario (`PATCH /animals/:id/status`) y la monta no cambia.
+- La fecha no puede ser futura, ni anterior a la monta o a su último diagnóstico (`400`).
+- La respuesta incluye `damDeath`: `{ date, cause, confirmedPregnancy, lostFetuses }`. `confirmedPregnancy` es `true` si el último diagnóstico era "preñada", y `lostFetuses` son los fetos que contó esa ecografía (`null` si no se contaron).
+- `DELETE /breeding/services/:id/dam-death` la anula si se registró por error: la monta vuelve al estado de su último diagnóstico y la hembra a `ALIVE`. Responde `409` si la hembra ya no figura como muerta en el inventario.
+
+**Desde el inventario:** si se registra la muerte de una hembra con `PATCH /animals/:id/status` (`DEAD`) y tiene una monta abierta, la monta se cierra igual como `DAM_DIED`. Si la fecha es anterior a la monta o a su último diagnóstico, se rechaza **todo** el cambio de estado (`400`). Si después se corrige el estado (deja de ser `DEAD`), la monta se reabre; si la hembra ya tiene otra monta abierta, el cambio se rechaza (`400`).
+
 ### `POST /breeding/services/:id/birth`
 
 **Permisos:** `reproduction:write` y `animals:create`. Registra el parto de la monta. **En la misma transacción** crea cada cría viva como animal, con:
@@ -1520,7 +1537,9 @@ Estos avisos (`warnings`) no bloquean el parto:
   "filters": { "species": "SHEEP" },
   "services": {
     "total": 40, "withResult": 32, "conceptions": 27, "kinshipOverrides": 1,
-    "byStatus": { "PENDING": 8, "PREGNANT": 10, "EMPTY": 5, "BIRTHED": 16, "ABORTED": 1 },
+    "byStatus": { "PENDING": 8, "PREGNANT": 9, "EMPTY": 5, "BIRTHED": 16, "ABORTED": 1, "DAM_DIED": 1 },
+    // Madres muertas durante la gestación: total, con preñez confirmada y fetos perdidos.
+    "damDeaths": { "total": 1, "confirmedPregnant": 1, "lostFetuses": 2 },
     "byType": { "DIRECTED": 35, "ARTIFICIAL_INSEMINATION": 5 }
   },
   "births": {
@@ -1541,6 +1560,8 @@ Estos avisos (`warnings`) no bloquean el parto:
   }
 }
 ```
+
+Una monta `DAM_DIED` cuenta como concepción si la preñez estaba confirmada (`confirmedPregnancy`). Si la madre murió antes de saber si estaba preñada, la monta no cuenta en `withResult`, así que no baja la fertilidad.
 
 ### `GET /animals/:animalId/reproduction`
 
@@ -2105,6 +2126,7 @@ AnimalResumen más estos campos:
   "inbreedingCoefficient": 0,            // consanguinidad de la cría (0 a 1)
   "kinshipOverride": null,               // { reason, authorizedBy, authorizedAt } si se autorizó pese al parentesco
   "abortion": null,                      // { date, cause }
+  "damDeath": null,                      // { date, cause, confirmedPregnancy, lostFetuses }
   "checks": [
     { "id": "...", "checkedAt": "2026-06-10", "method": "ULTRASOUND", "result": "PREGNANT",
       "fetusCount": 2, "notes": null, "createdAt": "...", "createdBy": "..." }
@@ -2237,7 +2259,7 @@ AnimalResumen más estos campos:
 | `IMMERSION` | `route`, `defaultRoute` | Inmersión (baño) |
 | `DIRECTED` | `type` (monta) | Monta dirigida (macho propio o externo) |
 | `ARTIFICIAL_INSEMINATION` | `type` (monta) | Inseminación artificial (reproductor externo) |
-| `PENDING` / `PREGNANT` / `EMPTY` / `BIRTHED` / `ABORTED` | `status` (monta) | Sin diagnóstico / Preñada / Vacía / Parió / Abortó |
+| `PENDING` / `PREGNANT` / `EMPTY` / `BIRTHED` / `ABORTED` / `DAM_DIED` | `status` (monta) | Sin diagnóstico / Preñada / Vacía / Parió / Abortó / Madre muerta |
 | `ULTRASOUND` / `OBSERVATION` | `method` (diagnóstico) | Ecografía / Observación |
 | `PREGNANT` / `EMPTY` | `result` (diagnóstico) | Preñada / Vacía |
 | `NORMAL` / `ASSISTED` / `CESAREAN` | `assistance` (parto) | Normal / Asistido / Cesárea |

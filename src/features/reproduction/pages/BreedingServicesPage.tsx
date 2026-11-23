@@ -26,6 +26,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'EMPTY', label: 'Vacías' },
   { id: 'BIRTHED', label: 'Paridas' },
   { id: 'ABORTED', label: 'Abortos' },
+  { id: 'DAM_DIED', label: 'Madre muerta' },
 ]
 
 /** Listado de montas por estado, con filtros. */

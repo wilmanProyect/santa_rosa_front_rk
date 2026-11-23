@@ -21,9 +21,9 @@ import { ApiError, getErrorMessage } from '@/shared/api/api-error'
 import { formatDate, formatKg, optional, todayIso } from '@/shared/lib/format'
 import {
   Alert,
+  BackLink,
   Badge,
   Button,
-  Icon,
   PageHeader,
   SelectField,
   Spinner,
@@ -220,13 +220,9 @@ function BirthForm({ service, initialDam }: { service: BreedingService | null; i
       <PageHeader
         eyebrow={
           service ? (
-            <Link to={REPRODUCTION_ROUTES.serviceDetail(service.id)}>
-              <Icon name="arrowLeft" size={14} /> Monta del {formatDate(service.serviceDate)}
-            </Link>
+            <BackLink to={REPRODUCTION_ROUTES.serviceDetail(service.id)}>Monta del {formatDate(service.serviceDate)}</BackLink>
           ) : (
-            <Link to={REPRODUCTION_ROUTES.births}>
-              <Icon name="arrowLeft" size={14} /> Partos
-            </Link>
+            <BackLink to={REPRODUCTION_ROUTES.births}>Partos</BackLink>
           )
         }
         title={service ? 'Registrar parto de la monta' : 'Registrar parto sin monta'}

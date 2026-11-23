@@ -1,18 +1,19 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { useAuth } from '@/features/auth'
 import { ApiError, getErrorMessage } from '@/shared/api/api-error'
 import { PERMISSIONS } from '@/shared/config/permissions'
 import { todayIso } from '@/shared/lib/format'
 import {
   Alert,
+  BackLink,
   Button,
-  Icon,
   PageHeader,
   SelectField,
   Spinner,
   TextAreaField,
   TextField,
+  useGoBack,
   useToast,
 } from '@/shared/ui'
 import { DuplicateIdentifierAlert, ExceptionReasonDialog } from '../components/DuplicateIdentifier'
@@ -70,6 +71,8 @@ function isDuplicate(error: unknown): error is ApiError {
 
 function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExternal: boolean }) {
   const navigate = useNavigate()
+  const backTo = animal ? ANIMALS_ROUTES.detail(animal.id) : ANIMALS_ROUTES.list
+  const goBack = useGoBack(backTo)
   const toast = useToast()
   const { can } = useAuth()
   const create = useCreateAnimal()
@@ -127,7 +130,10 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
       onSuccess: (saved: AnimalDetail) => {
         setAskReason(null)
         toast.show(animal ? 'Cambios guardados' : `${isExternal ? 'Reproductor' : 'Animal'} registrado`)
-        navigate(ANIMALS_ROUTES.detail(saved.id), { replace: true })
+        // Al editar se vuelve a la ficha de la que se vino (sin duplicarla en el historial);
+        // al registrar, el formulario se reemplaza por la ficha nueva.
+        if (animal) goBack()
+        else navigate(ANIMALS_ROUTES.detail(saved.id), { replace: true })
       },
       onError: (err: unknown) => {
         setAskReason(null)
@@ -139,7 +145,7 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
     if (animal) {
       const body = buildUpdateRequest(initial, form, isExternal)
       if (Object.keys(body).length === 0) {
-        navigate(ANIMALS_ROUTES.detail(animal.id))
+        goBack()
         return
       }
       update.mutate({ id: animal.id, body }, handlers)
@@ -154,7 +160,6 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
   }
 
   const conflictFields = conflict?.fields ?? []
-  const backTo = animal ? ANIMALS_ROUTES.detail(animal.id) : ANIMALS_ROUTES.list
   const title = animal
     ? `Editar ${animalLabel(animal)}`
     : isExternal
@@ -166,9 +171,7 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
       <form onSubmit={handleSubmit}>
         <PageHeader
           eyebrow={
-            <Link to={backTo}>
-              <Icon name="arrowLeft" size={14} /> {animal ? animalLabel(animal) : 'Animales'}
-            </Link>
+            <BackLink to={backTo}>{animal ? animalLabel(animal) : 'Animales'}</BackLink>
           }
           title={title}
           description={
@@ -178,7 +181,7 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
           }
           actions={
             <>
-              <Button variant="secondary" onClick={() => navigate(backTo)} disabled={saving}>
+              <Button variant="secondary" onClick={goBack} disabled={saving}>
                 Cancelar
               </Button>
               <Button type="submit" icon="check" loading={saving}>
@@ -476,7 +479,7 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
           </Section>
 
           <div className="row" style={{ justifyContent: 'flex-end' }}>
-            <Button variant="secondary" onClick={() => navigate(backTo)} disabled={saving}>
+            <Button variant="secondary" onClick={goBack} disabled={saving}>
               Cancelar
             </Button>
             <Button type="submit" icon="check" loading={saving}>

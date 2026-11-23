@@ -144,6 +144,19 @@ function StatsView({ stats, busy }: { stats: ReproductionStats; busy: boolean })
                 </div>
               ))}
               <div>
+                <dt>Madres muertas en gestación</dt>
+                <dd>
+                  {services.damDeaths?.total ?? 0}
+                  {(services.damDeaths?.total ?? 0) > 0 && (
+                    <span className="muted small">
+                      {' '}
+                      · {services.damDeaths.confirmedPregnant} con preñez confirmada ·{' '}
+                      {services.damDeaths.lostFetuses} feto(s) perdido(s)
+                    </span>
+                  )}
+                </dd>
+              </div>
+              <div>
                 <dt>Monta dirigida</dt>
                 <dd>{services.byType.DIRECTED ?? 0}</dd>
               </div>

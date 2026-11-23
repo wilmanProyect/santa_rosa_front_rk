@@ -5,6 +5,7 @@ import { Alert, Button, Dialog, SelectField, TextAreaField, TextField, useToast 
 import {
   useAddPregnancyCheck,
   useRecordAbortion,
+  useRecordDamDeath,
   useUpdateBreedingService,
 } from '../hooks/useReproduction'
 import { maxExitDate } from '../lib/reproduction-format'
@@ -183,9 +184,79 @@ function AbortionForm({ service, onDone }: { service: BreedingService; onDone():
   )
 }
 
+// ---------- Muerte de la madre ----------
+export function DamDeathDialog({ open, service, onClose }: ServiceDialogProps) {
+  return (
+    <Dialog open={open} onClose={onClose} title="Registrar muerte de la madre" size="sm" bare>
+      <DamDeathForm service={service} onDone={onClose} />
+    </Dialog>
+  )
+}
+
+function DamDeathForm({ service, onDone }: { service: BreedingService; onDone(): void }) {
+  const toast = useToast()
+  const record = useRecordDamDeath()
+  const [date, setDate] = useState(todayIso())
+  const [cause, setCause] = useState('')
+  // No puede ser anterior a la monta ni a su último diagnóstico (la API responde 400).
+  const minDate = service.checks.reduce(
+    (min, c) => (c.checkedAt > min ? c.checkedAt : min),
+    service.serviceDate,
+  )
+  const fetuses = service.expectedFetusCount
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    record.mutate(
+      { serviceId: service.id, body: { date, cause: optional(cause) } },
+      {
+        onSuccess: () => {
+          toast.show('Muerte de la madre registrada')
+          onDone()
+        },
+      },
+    )
+  }
+
+  return (
+    <form className="dialog__form" onSubmit={handleSubmit}>
+      <div className="dialog__body">
+        {record.isError && <Alert tone="error">{getErrorMessage(record.error)}</Alert>}
+        <Alert tone="warning">
+          La hembra pasará a <strong>Muerto</strong> en el inventario.
+          {fetuses !== null && (
+            <>
+              {' '}
+              Se registrarán {fetuses} {fetuses === 1 ? 'feto perdido' : 'fetos perdidos'}.
+            </>
+          )}
+        </Alert>
+        <TextField
+          label="Fecha de la muerte"
+          type="date"
+          required
+          min={minDate}
+          max={todayIso()}
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
+        <TextAreaField label="Causa" maxLength={500} value={cause} onChange={(e) => setCause(e.target.value)} />
+      </div>
+      <footer className="dialog__footer">
+        <Button variant="secondary" onClick={onDone} disabled={record.isPending}>
+          Cancelar
+        </Button>
+        <Button type="submit" variant="danger" loading={record.isPending}>
+          Registrar muerte
+        </Button>
+      </footer>
+    </form>
+  )
+}
+
 // ---------- Editar ----------
 export function EditServiceDialog({ open, service, onClose }: ServiceDialogProps) {
-  const closed = service.status === 'BIRTHED' || service.status === 'ABORTED'
+  const closed = service.status === 'BIRTHED' || service.status === 'ABORTED' || service.status === 'DAM_DIED'
   return (
     <Dialog
       open={open}
