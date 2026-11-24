@@ -42,6 +42,7 @@ import { MainLayout } from '../layouts/MainLayout'
 import { AnimalDetailRoute } from './AnimalDetailRoute'
 import { NAVIGATION } from '../navigation'
 import { NotFoundPage } from './NotFoundPage'
+import { SettingsPage, SETTINGS_ROUTE } from '../settings/SettingsPage'
 
 export const router = createBrowserRouter([
   { path: AUTH_ROUTES.login, element: <LoginPage /> },
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <DashboardPage modules={NAVIGATION} /> },
           { path: AUTH_ROUTES.profile, element: <ProfilePage /> },
+          { path: SETTINGS_ROUTE, element: <SettingsPage /> },
           {
             element: <RequirePermission permissions={[PERMISSIONS.ANIMALS_READ]} />,
             children: [

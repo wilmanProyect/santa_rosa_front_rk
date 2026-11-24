@@ -1,19 +1,23 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router'
-import { AUTH_ROUTES, useAuth } from '@/features/auth'
+import { NavLink, Outlet, useLocation } from 'react-router'
+import { useAuth } from '@/features/auth'
 import { storage } from '@/shared/lib/storage'
 import { BrandLogo, Icon } from '@/shared/ui'
 import { NAVIGATION } from '../navigation'
+import { SETTINGS_PATHS, SETTINGS_ROUTE } from '../settings/SettingsPage'
 import './main-layout.css'
 
 const COLLAPSED_KEY = 'sr.sidebarCollapsed'
 
 export function MainLayout() {
-  const { user, can, logout } = useAuth()
+  const { user, can } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   // En escritorio el menú se puede contraer a solo íconos; se recuerda la preferencia.
   const [collapsed, setCollapsed] = useState(() => storage.get(COLLAPSED_KEY) === '1')
-  const items = NAVIGATION.filter((item) => can(...item.permissions))
+  // Los módulos de sistema (copias, auditoría) se abren desde Configuración.
+  const items = NAVIGATION.filter((item) => item.placement !== 'settings' && can(...item.permissions))
+  const { pathname } = useLocation()
+  const inSettings = SETTINGS_PATHS.some((to) => pathname === to || pathname.startsWith(`${to}/`))
   // Secciones del menú en el orden en que aparecen en NAVIGATION; se omiten las vacías.
   const groups = items.reduce<{ title?: string; items: typeof items }[]>((acc, item) => {
     const last = acc[acc.length - 1]
@@ -106,32 +110,14 @@ export function MainLayout() {
             </div>
           </div>
           <NavLink
-            to={AUTH_ROUTES.profile}
-            className="layout__user-link"
+            to={SETTINGS_ROUTE}
+            className={() => ['layout__user-link', inSettings && 'active'].filter(Boolean).join(' ')}
             onClick={closeMenu}
-            title={collapsed ? 'Mi perfil' : undefined}
+            title={collapsed ? 'Configuración' : undefined}
           >
-            <Icon name="user" size={16} />
-            <span className="layout__label">Mi perfil</span>
+            <Icon name="settings" size={16} />
+            <span className="layout__label">Configuración</span>
           </NavLink>
-          <NavLink
-            to={AUTH_ROUTES.changePassword}
-            className="layout__user-link"
-            onClick={closeMenu}
-            title={collapsed ? 'Cambiar contraseña' : undefined}
-          >
-            <Icon name="key" size={16} />
-            <span className="layout__label">Cambiar contraseña</span>
-          </NavLink>
-          <button
-            type="button"
-            className="layout__user-link"
-            onClick={() => void logout()}
-            title={collapsed ? 'Cerrar sesión' : undefined}
-          >
-            <Icon name="logout" size={16} />
-            <span className="layout__label">Cerrar sesión</span>
-          </button>
         </div>
       </aside>
 
@@ -143,3 +129,4 @@ export function MainLayout() {
     </div>
   )
 }
+

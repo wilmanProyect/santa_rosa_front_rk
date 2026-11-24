@@ -27,12 +27,10 @@
 }
 
 /* En modo oscuro el logotipo a color pierde contraste: se usa la versión ocre. */
-@media (prefers-color-scheme: dark) {
-  .brand-logo--color .brand-logo__frame,
-  .brand-logo--color .brand-logo__cabana,
-  .brand-logo--color .brand-logo__shutters,
-  .brand-logo--color .brand-logo__name,
-  .brand-logo--color .brand-logo__animals {
-    fill: var(--brand-ochre);
-  }
+[data-theme='dark'] .brand-logo--color .brand-logo__frame,
+[data-theme='dark'] .brand-logo--color .brand-logo__cabana,
+[data-theme='dark'] .brand-logo--color .brand-logo__shutters,
+[data-theme='dark'] .brand-logo--color .brand-logo__name,
+[data-theme='dark'] .brand-logo--color .brand-logo__animals {
+  fill: var(--brand-ochre);
 }

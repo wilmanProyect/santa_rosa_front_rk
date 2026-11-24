@@ -115,6 +115,7 @@ export const NAVIGATION: NavItem[] = [
     description: 'Historial de inicios de sesión exitosos y fallidos.',
     icon: 'activity',
     group: 'Administración',
+    placement: 'settings',
     permissions: [PERMISSIONS.AUDIT_READ],
   },
   {
@@ -123,6 +124,7 @@ export const NAVIGATION: NavItem[] = [
     description: 'Descargar una copia completa de los datos, fotos y archivos, o restaurar una.',
     icon: 'download',
     group: 'Administración',
+    placement: 'settings',
     permissions: [PERMISSIONS.BACKUPS_CREATE],
   },
 ]
