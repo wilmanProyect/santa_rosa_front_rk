@@ -1,0 +1,11 @@
+// API pública de la feature de notificaciones: campana, lista, push y configuración de los avisos.
+export { NotificationsPage } from './pages/NotificationsPage'
+export { NotificationBell } from './components/NotificationBell'
+export { PushSettingsCard } from './components/PushSettingsCard'
+export { NotificationSettingsSection } from './components/NotificationSettingsSection'
+export { PushBridge } from './components/PushBridge'
+export { setupNotifications } from './lib/setup'
+export { notificationUrl } from './lib/notification-url'
+export { NOTIFICATIONS_ROUTES } from './routes'
+export { notificationsKeys } from './hooks/useNotifications'
+export type * from './types/notifications.types'

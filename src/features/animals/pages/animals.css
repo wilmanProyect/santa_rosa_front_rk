@@ -51,36 +51,283 @@
   font-size: 1.05rem;
 }
 
-/* Genealogía: madre y padre como tarjetas enlazadas */
-.parents {
+/* ---------- Árbol genealógico ---------- */
+/* Cada columna mide --pedigree-box + --pedigree-gap: los encabezados se alinean con ella. */
+.pedigree-scroll {
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+
+.pedigree {
+  --pedigree-box: 172px;
+  --pedigree-gap: 28px;
+  --pedigree-line: var(--color-border-strong);
+  width: max-content;
+  /* Espacio para el botón "…" de la última columna. */
+  padding-right: 30px;
+}
+
+.pedigree__headers {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-}
-.parent-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-  color: var(--color-text);
-  text-decoration: none;
-}
-a.parent-card:hover {
-  border-color: var(--color-accent);
-}
-.parent-card__role {
-  font-size: 0.74rem;
+  grid-template-columns: repeat(var(--pedigree-cols), var(--pedigree-box));
+  column-gap: var(--pedigree-gap);
+  margin-bottom: 10px;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-muted);
 }
-.parent-card--empty {
-  color: var(--color-muted);
+
+.pedigree__node {
+  display: flex;
+  align-items: center;
+}
+
+.pedigree__parents {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding-left: var(--pedigree-gap);
+}
+
+/* Línea desde la casilla hasta la bifurcación. */
+.pedigree__parents::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: calc(var(--pedigree-gap) / 2);
+  border-top: 1px solid var(--pedigree-line);
+}
+
+.pedigree__branch {
+  position: relative;
+  padding: 3px 0;
+}
+
+/* Línea horizontal hacia cada padre. */
+.pedigree__branch::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--pedigree-gap) / -2);
+  top: 50%;
+  width: calc(var(--pedigree-gap) / 2);
+  border-top: 1px solid var(--pedigree-line);
+}
+
+/* Línea vertical que une madre (arriba) y padre (abajo). */
+.pedigree__branch::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--pedigree-gap) / -2);
+  border-left: 1px solid var(--pedigree-line);
+}
+.pedigree__branch:first-child::after {
+  top: 50%;
+  bottom: 0;
+}
+.pedigree__branch:last-child::after {
+  top: 0;
+  bottom: 50%;
+}
+
+.pedigree__cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pedigree__box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  width: var(--pedigree-box);
+  min-height: 54px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 0.86rem;
+  line-height: 1.25;
+}
+
+a.pedigree__box:hover {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.pedigree__box--compact {
+  min-height: 40px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+}
+
+.pedigree__box--root {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font-weight: 700;
+}
+
+.pedigree__box--unknown {
   border-style: dashed;
+  background: transparent;
+  color: var(--color-muted);
+}
+
+/* Ancestro repetido: mismo color de borde en todas sus apariciones. */
+.pedigree__box--repeated {
+  border: 2px solid var(--repeat-color);
+  box-shadow: inset 4px 0 0 var(--repeat-color);
+}
+
+.pedigree__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--color-heading);
+}
+
+.pedigree__box--unknown .pedigree__name {
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.pedigree__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+}
+
+.pedigree__meta .badge {
+  font-size: 0.66rem;
+}
+
+.pedigree__load {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+/* "…": el ancestro tiene más generaciones registradas. */
+.pedigree__more {
+  position: absolute;
+  right: -24px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-accent-text);
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pedigree__more:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+/* Selector de generaciones */
+.pedigree-generations {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.pedigree-generations button {
+  min-width: 36px;
+  padding: 6px 10px;
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pedigree-generations button:first-child {
+  border-left: 0;
+}
+
+.pedigree-generations button[aria-pressed='true'] {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+/* Completitud por generación */
+.pedigree-completeness {
+  display: grid;
+  gap: 6px;
+  max-width: 520px;
+}
+
+.pedigree-completeness__row {
+  display: grid;
+  grid-template-columns: 110px 1fr 64px;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.86rem;
+}
+
+.pedigree-completeness__label {
+  font-weight: 700;
+}
+
+.pedigree-completeness__bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.pedigree-completeness__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+}
+
+.pedigree-completeness__value {
+  color: var(--color-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Leyenda de ancestros repetidos */
+.pedigree-repeated ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pedigree-repeated li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pedigree-repeated__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
 }
 
 /* ---------- Formulario ---------- */

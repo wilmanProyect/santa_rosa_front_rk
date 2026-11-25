@@ -23,6 +23,7 @@ import {
   RequireAuth,
   RequirePermission,
 } from '@/features/auth'
+import { ControlsPage, CONTROLS_ROUTES } from '@/features/controls'
 import { DashboardPage } from '@/features/dashboard'
 import {
   BirthDetailPage,
@@ -34,6 +35,7 @@ import {
   REPRODUCTION_ROUTES,
   ReproductionStatsPage,
 } from '@/features/reproduction'
+import { NotificationsPage, NOTIFICATIONS_ROUTES } from '@/features/notifications'
 import { ReviewsPage, REVIEWS_ROUTES } from '@/features/reviews'
 import { RoleEditorPage, RolesPage, ROLES_ROUTES } from '@/features/roles'
 import { UserDetailPage, UsersPage, USERS_ROUTES } from '@/features/users'
@@ -56,6 +58,13 @@ export const router = createBrowserRouter([
           { index: true, element: <DashboardPage modules={NAVIGATION} /> },
           { path: AUTH_ROUTES.profile, element: <ProfilePage /> },
           { path: SETTINGS_ROUTE, element: <SettingsPage /> },
+          { path: NOTIFICATIONS_ROUTES.list, element: <NotificationsPage /> },
+          {
+            element: (
+              <RequirePermission anyPermissions={[PERMISSIONS.WEIGHINGS_WRITE, PERMISSIONS.HEALTH_WRITE]} />
+            ),
+            children: [{ path: CONTROLS_ROUTES.page, element: <ControlsPage /> }],
+          },
           {
             element: <RequirePermission permissions={[PERMISSIONS.ANIMALS_READ]} />,
             children: [

@@ -2,6 +2,7 @@ import { ANIMALS_ROUTES } from '@/features/animals'
 import { AREAS_ROUTES } from '@/features/areas'
 import { AUDIT_ROUTES } from '@/features/audit'
 import { BACKUPS_ROUTES } from '@/features/backups'
+import { CONTROLS_ROUTES } from '@/features/controls'
 import { HEALTH_ROUTES } from '@/features/health'
 import { REPRODUCTION_ROUTES } from '@/features/reproduction'
 import { REVIEWS_ROUTES } from '@/features/reviews'
@@ -28,6 +29,15 @@ export const NAVIGATION: NavItem[] = [
     icon: 'activity',
     group: 'Ganado',
     permissions: [PERMISSIONS.WEIGHINGS_WRITE],
+  },
+  {
+    to: CONTROLS_ROUTES.page,
+    label: 'Controles',
+    description: 'Destetes, controles de peso y sanitarios pendientes: registrar o justificar.',
+    icon: 'check',
+    group: 'Ganado',
+    permissions: [],
+    anyPermissions: [PERMISSIONS.WEIGHINGS_WRITE, PERMISSIONS.HEALTH_WRITE],
   },
   {
     to: ANIMALS_ROUTES.catalogs,

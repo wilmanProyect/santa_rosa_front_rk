@@ -111,6 +111,8 @@ function useInvalidateReproduction() {
       queryClient.invalidateQueries({ queryKey: reproductionKeys.all }),
       queryClient.invalidateQueries({ queryKey: REMINDERS_KEY }),
       options.animals && queryClient.invalidateQueries({ queryKey: animalsKeys.all }),
+      // Las crías nuevas entran en el destete; una madre muerta sale de los controles.
+      options.animals && queryClient.invalidateQueries({ queryKey: ['controls'] }),
     ])
 }
 

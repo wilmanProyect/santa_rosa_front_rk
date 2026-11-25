@@ -140,6 +140,27 @@ const ICONS = {
     </>
   ),
   chart: <path d="M3 3v18h18M7 16v-4M12 16V8M17 16v-7" />,
+  bell: (
+    <>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </>
+  ),
+  /** Biberón (destete). */
+  baby: (
+    <>
+      <path d="M10 2h4M9 5h6M10 5V2.5M14 5V2.5" />
+      <path d="M8 9a3 3 0 0 1 3-4h2a3 3 0 0 1 3 4v11a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2z" />
+      <path d="M8 13h3M8 17h3" />
+    </>
+  ),
+  /** Balanza (pesaje). */
+  scale: (
+    <>
+      <path d="M12 3v18M7 21h10M5 7h14" />
+      <path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z" />
+    </>
+  ),
   sun: (
     <>
       <circle cx="12" cy="12" r="4" />

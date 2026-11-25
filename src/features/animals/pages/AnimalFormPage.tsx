@@ -18,7 +18,7 @@ import {
 } from '@/shared/ui'
 import { DuplicateIdentifierAlert, ExceptionReasonDialog } from '../components/DuplicateIdentifier'
 import { ParentPicker } from '../components/ParentPicker'
-import { QuickColorDialog, QuickExternalSireDialog } from '../components/QuickCreateDialogs'
+import { QuickColorDialog, QuickExternalParentDialog } from '../components/QuickCreateDialogs'
 import { useAnimal, useCreateAnimal, useUpdateAnimal } from '../hooks/useAnimals'
 import { useBreeds, useColors } from '../hooks/useCatalogs'
 import { animalLabel } from '../lib/animal-label'
@@ -85,7 +85,8 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
   const [conflict, setConflict] = useState<DuplicateIdentifierBody | null>(null)
   // Motivo pedido para registrar un caso especial: por identificador repetido o por falta de arete.
   const [askReason, setAskReason] = useState<'duplicate' | 'missingEarTag' | null>(null)
-  const [quickSire, setQuickSire] = useState(false)
+  // Padre o madre externos que se registran desde la genealogía.
+  const [quickParent, setQuickParent] = useState<Sex | null>(null)
   const [quickColor, setQuickColor] = useState(false)
 
   const { data: breeds } = useBreeds(
@@ -304,21 +305,24 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
             </div>
             {isExternal && (
               <p className="muted small m-0" style={{ marginTop: 12 }}>
-                Un reproductor externo necesita al menos uno de: arete, nombre, registro ABSID o
-                registro externo.
+                Un reproductor externo necesita al menos uno de: arete, nombre o registro externo
+                ABSID.
               </p>
             )}
           </Section>
 
           <Section title="Registros" description="Se guardan en mayúsculas.">
             <div className="grid-2">
-              <TextField
-                label="Registro ABSID"
-                maxLength={50}
-                className={conflictFields.includes('absidRegistry') ? 'field--invalid' : undefined}
-                value={values.absidRegistry}
-                onChange={text('absidRegistry', upper)}
-              />
+              {/* En un reproductor externo el registro ABSID es su registro externo. */}
+              {!isExternal && (
+                <TextField
+                  label="Registro ABSID"
+                  maxLength={50}
+                  className={conflictFields.includes('absidRegistry') ? 'field--invalid' : undefined}
+                  value={values.absidRegistry}
+                  onChange={text('absidRegistry', upper)}
+                />
+              )}
               <TextField
                 label="Código del certificado ABSID"
                 hint="El archivo escaneado se adjunta desde la ficha."
@@ -327,7 +331,7 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
                 onChange={text('absidCertificateCode', upper)}
               />
               <TextField
-                label="Registro externo"
+                label="Registro externo ABSID"
                 hint="Registro en otra entidad o código del reproductor en el centro de semen."
                 maxLength={100}
                 value={values.externalRegistry}
@@ -367,17 +371,31 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
 
           <Section
             title="Genealogía"
-            description="Madre hembra y padre macho de la misma especie, nacidos antes que la cría."
+            description="Madre hembra y padre macho de la misma especie, nacidos antes que la cría. Si no son de la cabaña (animal comprado o regalado), regístrelos como externos."
           >
             <div className="grid-2">
-              <ParentPicker
-                label="Madre"
-                species={values.species}
-                sex="FEMALE"
-                value={values.dam}
-                excludeId={animal?.id}
-                onChange={(dam) => set('dam', dam)}
-              />
+              <div className="stack stack--sm">
+                <ParentPicker
+                  label="Madre"
+                  species={values.species}
+                  sex="FEMALE"
+                  includeExternal
+                  value={values.dam}
+                  excludeId={animal?.id}
+                  onChange={(dam) => set('dam', dam)}
+                />
+                {can(PERMISSIONS.ANIMALS_CREATE) && values.species && !values.dam && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon="plus"
+                    style={{ alignSelf: 'flex-start' }}
+                    onClick={() => setQuickParent('FEMALE')}
+                  >
+                    Registrar madre externa
+                  </Button>
+                )}
+              </div>
               <div className="stack stack--sm">
                 <ParentPicker
                   label="Padre"
@@ -394,9 +412,9 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
                     variant="ghost"
                     icon="plus"
                     style={{ alignSelf: 'flex-start' }}
-                    onClick={() => setQuickSire(true)}
+                    onClick={() => setQuickParent('MALE')}
                   >
-                    Registrar reproductor externo
+                    Registrar padre externo
                   </Button>
                 )}
               </div>
@@ -506,11 +524,12 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
         }}
       />
       {values.species && (
-        <QuickExternalSireDialog
-          open={quickSire}
+        <QuickExternalParentDialog
+          open={quickParent !== null}
           species={values.species}
-          onClose={() => setQuickSire(false)}
-          onCreated={(sire) => set('sire', sire)}
+          sex={quickParent ?? 'MALE'}
+          onClose={() => setQuickParent(null)}
+          onCreated={(parent) => set(quickParent === 'FEMALE' ? 'dam' : 'sire', parent)}
         />
       )}
       <QuickColorDialog

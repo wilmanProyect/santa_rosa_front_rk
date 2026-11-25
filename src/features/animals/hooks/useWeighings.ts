@@ -27,6 +27,8 @@ function useInvalidateWeighings() {
         queryClient.invalidateQueries({ queryKey: animalsKeys.detail(id) }),
       ]),
       queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+      // Un pesaje cumple el destete o el control de peso (feature controls).
+      queryClient.invalidateQueries({ queryKey: ['controls'] }),
     ])
 }
 

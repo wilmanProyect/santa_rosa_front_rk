@@ -1,7 +1,9 @@
 import { useAuth } from '@/features/auth'
+import { ControlsSummaryCards } from '@/features/controls'
 import { RemindersCard } from '@/features/health'
 import { PERMISSIONS } from '@/shared/config/permissions'
 import type { NavItem } from '@/shared/types/navigation.types'
+import { isNavItemAllowed } from '@/shared/lib/navigation'
 import { BrandLogo, Icon, ModuleCard, ModuleGrid } from '@/shared/ui'
 import './dashboard.css'
 
@@ -16,7 +18,7 @@ function greeting(): string {
 export function DashboardPage({ modules }: { modules: NavItem[] }) {
   const { user, can } = useAuth()
   const available = modules.filter(
-    (item) => item.to !== '/' && item.placement !== 'settings' && can(...item.permissions),
+    (item) => item.to !== '/' && item.placement !== 'settings' && isNavItemAllowed(item, can),
   )
   const firstName = user?.fullName.split(' ')[0] ?? ''
 
@@ -36,6 +38,8 @@ export function DashboardPage({ modules }: { modules: NavItem[] }) {
           <RemindersCard />
         </div>
       )}
+
+      <ControlsSummaryCards />
 
       {available.length === 0 ? (
         <div className="card empty">

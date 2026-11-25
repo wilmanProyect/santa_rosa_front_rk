@@ -3,6 +3,7 @@ import type { Paginated } from '@/shared/types/api.types'
 import type {
   AnimalColor,
   AnimalDetail,
+  Pedigree,
   AnimalFilters,
   AnimalPhoto,
   AnimalSummary,
@@ -29,6 +30,9 @@ export const animalsApi = {
     http<Paginated<AnimalSummary>>('/animals', { query: { ...filters }, signal }),
 
   get: (id: string) => http<AnimalDetail>(`/animals/${id}`),
+  /** Árbol genealógico en una sola consulta (1 a 6 generaciones). */
+  pedigree: (id: string, generations: number) =>
+    http<Pedigree>(`/animals/${id}/pedigree`, { query: { generations } }),
 
   create: (body: CreateAnimalRequest) => http<AnimalDetail>('/animals', { method: 'POST', body }),
 

@@ -21,10 +21,12 @@ interface WeighingFormDialogProps {
   weighing: Weighing | null
   /** Pesajes existentes, para no ofrecer un segundo nacimiento o destete. */
   existing: Weighing[]
+  /** Tipo con el que se abre un pesaje nuevo (p. ej. `WEANING` desde Controles). */
+  defaultType?: WeighingType
   onClose(): void
 }
 
-export function WeighingFormDialog({ open, animal, weighing, existing, onClose }: WeighingFormDialogProps) {
+export function WeighingFormDialog({ open, animal, weighing, existing, defaultType, onClose }: WeighingFormDialogProps) {
   return (
     <Dialog
       open={open}
@@ -38,6 +40,7 @@ export function WeighingFormDialog({ open, animal, weighing, existing, onClose }
         animal={animal}
         weighing={weighing}
         existing={existing}
+        presetType={defaultType}
         onDone={onClose}
       />
     </Dialog>
@@ -48,11 +51,13 @@ function WeighingForm({
   animal,
   weighing,
   existing,
+  presetType,
   onDone,
 }: {
   animal: AnimalDetail
   weighing: Weighing | null
   existing: Weighing[]
+  presetType?: WeighingType
   onDone(): void
 }) {
   const toast = useToast()
@@ -62,7 +67,7 @@ function WeighingForm({
 
   // Si nunca se pesó, lo natural es el pesaje de nacimiento.
   const defaultType: WeighingType =
-    existing.length === 0 && animal.entryOrigin === 'BORN_ON_FARM' ? 'BIRTH' : 'ROUTINE'
+    presetType ?? (existing.length === 0 && animal.entryOrigin === 'BORN_ON_FARM' ? 'BIRTH' : 'ROUTINE')
   const [weighedAt, setWeighedAt] = useState(weighing?.weighedAt ?? todayIso())
   const [weightKg, setWeightKg] = useState(weighing ? String(weighing.weightKg) : '')
   const [type, setType] = useState<WeighingType>(weighing?.type ?? defaultType)

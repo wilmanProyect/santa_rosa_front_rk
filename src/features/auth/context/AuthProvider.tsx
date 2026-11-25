@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { runAfterLogin, runBeforeLogout } from '@/shared/lib/session-hooks'
 import { authApi } from '../api/auth.api'
 import { tokenStore } from '../services/token-store'
 import type { MeResponse, SessionUser } from '../types/auth.types'
@@ -88,10 +89,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setUser(sessionUser)
         setStatus('authenticated')
+        runAfterLogin()
         return sessionUser
       },
 
       async logout() {
+        // Antes de invalidar el token (p. ej. quitar la suscripción push de este navegador).
+        await runBeforeLogout()
         try {
           await authApi.logout()
         } finally {
@@ -100,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
 
       async logoutAll() {
+        await runBeforeLogout()
         try {
           await authApi.logoutAll()
         } finally {

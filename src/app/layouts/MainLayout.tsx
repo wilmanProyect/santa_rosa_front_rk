@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '@/features/auth'
+import { NotificationBell, PushBridge } from '@/features/notifications'
 import { storage } from '@/shared/lib/storage'
+import { isNavItemAllowed } from '@/shared/lib/navigation'
 import { BrandLogo, Icon } from '@/shared/ui'
 import { NAVIGATION } from '../navigation'
 import { SETTINGS_PATHS, SETTINGS_ROUTE } from '../settings/SettingsPage'
@@ -15,7 +17,7 @@ export function MainLayout() {
   // En escritorio el menú se puede contraer a solo íconos; se recuerda la preferencia.
   const [collapsed, setCollapsed] = useState(() => storage.get(COLLAPSED_KEY) === '1')
   // Los módulos de sistema (copias, auditoría) se abren desde Configuración.
-  const items = NAVIGATION.filter((item) => item.placement !== 'settings' && can(...item.permissions))
+  const items = NAVIGATION.filter((item) => item.placement !== 'settings' && isNavItemAllowed(item, can))
   const { pathname } = useLocation()
   const inSettings = SETTINGS_PATHS.some((to) => pathname === to || pathname.startsWith(`${to}/`))
   // Secciones del menú en el orden en que aparecen en NAVIGATION; se omiten las vacías.
@@ -58,7 +60,9 @@ export function MainLayout() {
         </button>
         <BrandLogo variant="isotype" tone="white" className="layout__topbar-logo" />
         <span className="layout__topbar-title">Santa Rosa</span>
+        <NotificationBell variant="topbar" />
       </header>
+      <PushBridge />
 
       <aside id="main-sidebar" className="layout__sidebar">
         <div className="layout__brand">
@@ -109,6 +113,7 @@ export function MainLayout() {
               <span>@{user?.username}</span>
             </div>
           </div>
+          <NotificationBell variant="sidebar" collapsed={collapsed} />
           <NavLink
             to={SETTINGS_ROUTE}
             className={() => ['layout__user-link', inSettings && 'active'].filter(Boolean).join(' ')}

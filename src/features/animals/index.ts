@@ -12,6 +12,8 @@ export { geneticCategoryShort } from './lib/genetic-category'
 export { AnimalFlags, AnimalStatusBadge } from './components/AnimalBadges'
 export { useAnimal, useAnimals, animalsKeys } from './hooks/useAnimals'
 export { useBreeds, useColors } from './hooks/useCatalogs'
+export { useWeighings } from './hooks/useWeighings'
+export { WeighingFormDialog } from './components/weighings/WeighingFormDialog'
 export { animalsApi, catalogsApi, photosApi, weighingsApi } from './api/animals.api'
 export {
   ANIMAL_ERROR_CODES,

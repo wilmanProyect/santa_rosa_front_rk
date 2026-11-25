@@ -100,8 +100,8 @@ export const MISSING_EAR_TAG = 'MISSING_EAR_TAG'
  */
 export function validateAnimal(values: AnimalFormValues, isExternal: boolean): string | null {
   if (isExternal) {
-    if (![values.earTag, values.name, values.absidRegistry, values.externalRegistry].some((v) => v.trim())) {
-      return 'Un reproductor externo necesita al menos arete, nombre, registro ABSID o registro externo.'
+    if (![values.earTag, values.name, values.externalRegistry].some((v) => v.trim())) {
+      return 'Un reproductor externo necesita al menos arete, nombre o registro externo ABSID.'
     }
   } else {
     if (!values.earTag.trim() && !values.identifierException) return MISSING_EAR_TAG

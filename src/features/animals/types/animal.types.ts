@@ -386,3 +386,59 @@ export const WEIGHT_LIMITS = { min: 0.01, max: 999.99 } as const
 
 /** Condición corporal de 1 a 5 en pasos de 0,5. */
 export const BODY_CONDITION_SCORES = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
+
+// ---------- Árbol genealógico (GET /animals/:id/pedigree) ----------
+export interface PedigreeTreeNode {
+  id: string
+  earTag: string | null
+  name: string | null
+  sex: Sex
+  birthDate: string | null
+  isExternal: boolean
+  status: AnimalStatus
+  geneticCategory: GeneticCategory | null
+  absidRegistry: string | null
+  breedName: string | null
+  /** 0 = el animal, 1 = padres, 2 = abuelos... */
+  generation: number
+  /** null = desconocido. No vienen en la última generación pedida. */
+  dam?: PedigreeTreeNode | null
+  sire?: PedigreeTreeNode | null
+  /** Solo en la última generación: tiene padres registrados (se puede ampliar). */
+  hasMoreAncestors?: boolean
+}
+
+export interface PedigreeAncestorRef {
+  id: string
+  earTag: string | null
+  name: string | null
+}
+
+export interface Pedigree {
+  generations: number
+  tree: PedigreeTreeNode
+  completeness: { generation: number; known: number; possible: number }[]
+  repeatedAncestors: (PedigreeAncestorRef & { occurrences: number })[]
+  /** null si falta la madre o el padre, o con generations=1. */
+  inbreeding: {
+    /** 0 a 1 (Wright). */
+    coefficient: number
+    relationship: string | null
+    commonAncestors: (PedigreeAncestorRef & { description: string })[]
+  } | null
+}
+
+/** Generaciones que se pueden pedir (la API admite de 1 a 6). */
+export const PEDIGREE_MIN_GENERATIONS = 2
+export const PEDIGREE_MAX_GENERATIONS = 6
+export const PEDIGREE_DEFAULT_GENERATIONS = 4
+
+export const GENERATION_LABELS = [
+  'Animal',
+  'Padres',
+  'Abuelos',
+  'Bisabuelos',
+  'Tatarabuelos',
+  '5.ª generación',
+  '6.ª generación',
+]

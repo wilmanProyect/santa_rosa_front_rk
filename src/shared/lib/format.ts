@@ -21,6 +21,26 @@ export function todayIso(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
 
+/** Suma días a una fecha `YYYY-MM-DD` (sin zona horaria). */
+export function addDaysIso(iso: string, days: number): string {
+  const date = new Date(`${iso.slice(0, 10)}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+const relativeFormat = new Intl.RelativeTimeFormat('es', { numeric: 'auto' })
+
+/** "hace 5 min", "hace 2 h", "ayer"… a partir de una fecha y hora ISO. */
+export function formatRelative(value: string, now: number = Date.now()): string {
+  const seconds = Math.round((new Date(value).getTime() - now) / 1000)
+  const abs = Math.abs(seconds)
+  if (abs < 60) return 'hace un momento'
+  if (abs < 3600) return relativeFormat.format(Math.round(seconds / 60), 'minute')
+  if (abs < 86400) return relativeFormat.format(Math.round(seconds / 3600), 'hour')
+  if (abs < 7 * 86400) return relativeFormat.format(Math.round(seconds / 86400), 'day')
+  return formatDateTime(value)
+}
+
 /** Iniciales para avatares: ("Juan Carlos", "Pérez") → "JP". */
 export function initials(firstName: string | null | undefined, lastName?: string | null): string {
   const first = firstName?.trim()[0] ?? ''

@@ -2,79 +2,151 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { formatAge } from '@/shared/lib/format'
-import { Alert, Badge, Icon, Pagination, Spinner } from '@/shared/ui'
-import { useAnimal, useAnimals } from '../hooks/useAnimals'
+import { Alert, Icon, Pagination, Spinner } from '@/shared/ui'
+import { useAnimals, usePedigree } from '../hooks/useAnimals'
 import { animalLabel } from '../lib/animal-label'
+import { repeatColor } from '../lib/pedigree'
 import { ANIMALS_ROUTES } from '../routes'
-import { SEX_LABELS, type AnimalDetail, type ParentRef } from '../types/animal.types'
+import {
+  GENERATION_LABELS,
+  PEDIGREE_DEFAULT_GENERATIONS,
+  PEDIGREE_MAX_GENERATIONS,
+  PEDIGREE_MIN_GENERATIONS,
+  SEX_LABELS,
+  type AnimalDetail,
+  type Pedigree,
+} from '../types/animal.types'
 import { AnimalStatusBadge } from './AnimalBadges'
 import { AnimalThumb } from './AnimalThumb'
+import { PedigreeTree } from './PedigreeTree'
 
-/** Padres y abuelos (pidiendo la ficha de cada padre) y la lista de crías. */
+/** Árbol genealógico (una sola consulta a la API) y la lista de crías. */
 export function Genealogy({ animal }: { animal: AnimalDetail }) {
   return (
     <div className="stack">
-      <section className="card">
-        <header className="card__header">
-          <div>
-            <h2>Genealogía</h2>
-            <p>Padres y abuelos registrados.</p>
-          </div>
-        </header>
-        <div className="card__body stack">
-          <div className="parents">
-            <ParentCard role="Madre" parent={animal.dam} />
-            <ParentCard role="Padre" parent={animal.sire} />
-          </div>
-          <div className="parents">
-            <Grandparents role="madre" parent={animal.dam} />
-            <Grandparents role="padre" parent={animal.sire} />
-          </div>
-        </div>
-      </section>
+      <PedigreeSection key={animal.id} animal={animal} />
       <Offspring animal={animal} />
     </div>
   )
 }
 
-function ParentCard({ role, parent }: { role: string; parent: ParentRef | null }) {
-  if (!parent) {
-    return (
-      <div className="parent-card parent-card--empty">
-        <Icon name="tree" />
-        <div>
-          <div className="parent-card__role">{role}</div>
-          Sin registrar
-        </div>
-      </div>
-    )
-  }
+const percent = new Intl.NumberFormat('es', { style: 'percent', maximumFractionDigits: 2 })
+/** Hasta 6,25 % (primos hermanos) es un aviso; más, una alerta. */
+const INBREEDING_WARNING_LIMIT = 0.0625
+
+function PedigreeSection({ animal }: { animal: AnimalDetail }) {
+  const [generations, setGenerations] = useState(PEDIGREE_DEFAULT_GENERATIONS)
+  const { data, isPending, isError, error, isFetching } = usePedigree(animal.id, generations)
+
   return (
-    <Link to={ANIMALS_ROUTES.detail(parent.id)} className="parent-card">
-      <Icon name="animal" />
-      <div>
-        <div className="parent-card__role">{role}</div>
-        <strong>{animalLabel(parent)}</strong> {parent.isExternal && <Badge tone="accent">Externo</Badge>}
+    <section className="card">
+      <header className="card__header">
+        <div>
+          <h2>Árbol genealógico</h2>
+          <p>Pase el mouse sobre una casilla para ver raza, categoría, ABSID y nacimiento.</p>
+        </div>
+        <div className="pedigree-generations" role="group" aria-label="Generaciones">
+          {Array.from(
+            { length: PEDIGREE_MAX_GENERATIONS - PEDIGREE_MIN_GENERATIONS + 1 },
+            (_, i) => i + PEDIGREE_MIN_GENERATIONS,
+          ).map((g) => (
+            <button
+              key={g}
+              type="button"
+              aria-pressed={generations === g}
+              title={`${g} generaciones (hasta ${GENERATION_LABELS[g].toLowerCase()})`}
+              onClick={() => setGenerations(g)}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+      </header>
+      <div className="card__body stack" aria-busy={isFetching}>
+        {isPending && <Spinner />}
+        {isError && <Alert tone="error">{getErrorMessage(error)}</Alert>}
+        {data && (
+          <>
+            <InbreedingNotice pedigree={data} />
+            <Completeness pedigree={data} />
+            <PedigreeTree
+              pedigree={data}
+              onExpand={() => setGenerations((g) => Math.min(g + 1, PEDIGREE_MAX_GENERATIONS))}
+            />
+            {data.repeatedAncestors.length > 0 && <RepeatedLegend pedigree={data} />}
+          </>
+        )}
       </div>
-    </Link>
+    </section>
   )
 }
 
-/** Abuelos por la línea de un padre: se obtienen de la ficha del padre. */
-function Grandparents({ role, parent }: { role: string; parent: ParentRef | null }) {
-  const { data, isPending } = useAnimal(parent?.id)
-  if (!parent) return <div />
+function InbreedingNotice({ pedigree }: { pedigree: Pedigree }) {
+  const { inbreeding, generations } = pedigree
+  if (!inbreeding) return null
+  const note = <span className="muted small"> El cálculo solo ve los ancestros registrados.</span>
+  if (inbreeding.coefficient <= 0) {
+    return (
+      <Alert tone="info">
+        Sin consanguinidad en {generations} generaciones.{note}
+      </Alert>
+    )
+  }
+  const common = inbreeding.commonAncestors.map((a) => animalLabel(a)).join(', ')
   return (
-    <div className="stack stack--sm">
-      <span className="parent-card__role">Abuelos por {role}</span>
-      {isPending ? (
-        <Spinner />
-      ) : (
-        <>
-          <ParentCard role={`Abuela (${role})`} parent={data?.dam ?? null} />
-          <ParentCard role={`Abuelo (${role})`} parent={data?.sire ?? null} />
-        </>
-      )}
+    <Alert tone={inbreeding.coefficient > INBREEDING_WARNING_LIMIT ? 'error' : 'warning'}>
+      <strong>Consanguinidad: {percent.format(inbreeding.coefficient)}</strong>
+      {inbreeding.relationship && <> — los padres son {inbreeding.relationship}</>}
+      {common && <> (ancestro común: {common})</>}.{note}
+    </Alert>
+  )
+}
+
+/** Ancestros conocidos sobre los posibles, por generación: muestra qué falta cargar. */
+function Completeness({ pedigree }: { pedigree: Pedigree }) {
+  return (
+    <div className="pedigree-completeness">
+      {pedigree.completeness.map((c) => {
+        const ratio = c.possible > 0 ? c.known / c.possible : 0
+        return (
+          <div key={c.generation} className="pedigree-completeness__row">
+            <span className="pedigree-completeness__label">{GENERATION_LABELS[c.generation] ?? `${c.generation}.ª`}</span>
+            <span
+              className="pedigree-completeness__bar"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={c.possible}
+              aria-valuenow={c.known}
+              aria-label={`${GENERATION_LABELS[c.generation]}: ${c.known} de ${c.possible}`}
+            >
+              <span style={{ width: `${Math.round(ratio * 100)}%` }} />
+            </span>
+            <span className="pedigree-completeness__value">
+              {c.known} de {c.possible}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function RepeatedLegend({ pedigree }: { pedigree: Pedigree }) {
+  return (
+    <div className="pedigree-repeated">
+      <strong className="small">Ancestros repetidos</strong>
+      <ul>
+        {pedigree.repeatedAncestors.map((a, i) => (
+          <li key={a.id}>
+            <span
+              className="pedigree-repeated__swatch"
+              style={{ background: repeatColor(i) }}
+            />
+            <Link to={ANIMALS_ROUTES.detail(a.id)}>{animalLabel(a)}</Link>
+            <span className="muted small">Aparece {a.occurrences} veces</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

@@ -12,4 +12,6 @@ export interface NavItem {
   placement?: 'settings'
   /** El ítem solo se muestra si el usuario tiene todos estos permisos. */
   permissions: PermissionCode[]
+  /** Además, basta con tener al menos uno de estos (p. ej. Controles: peso o sanidad). */
+  anyPermissions?: PermissionCode[]
 }

@@ -51,6 +51,8 @@ export const PERMISSIONS = {
   AUDIT_READ: 'audit:read',
   BACKUPS_CREATE: 'backups:create',
   BACKUPS_RESTORE: 'backups:restore',
+
+  NOTIFICATIONS_SETTINGS: 'notifications:settings',
 } as const
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

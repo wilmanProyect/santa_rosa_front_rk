@@ -4,38 +4,65 @@ import { optional } from '@/shared/lib/format'
 import { Alert, Button, Dialog, SelectField, TextField, useToast } from '@/shared/ui'
 import { useCreateAnimal } from '../hooks/useAnimals'
 import { useBreeds, useSaveColor } from '../hooks/useCatalogs'
-import { SPECIES_LABELS, type AnimalColor, type ParentRef, type Species } from '../types/animal.types'
+import { SPECIES_LABELS, type AnimalColor, type ParentRef, type Sex, type Species } from '../types/animal.types'
 
 const upper = (value: string) => value.toUpperCase()
 
-interface QuickExternalSireDialogProps {
+interface QuickExternalParentDialogProps {
   open: boolean
   species: Species
+  /** `MALE`: padre (p. ej. donante de semen). `FEMALE`: madre (p. ej. comprada o regalada por otra cabaña). */
+  sex: Sex
   onClose(): void
   onCreated(parent: ParentRef): void
 }
 
-/** Registrar un reproductor externo sin salir del formulario del animal. */
-export function QuickExternalSireDialog({ open, species, onClose, onCreated }: QuickExternalSireDialogProps) {
+const PARENT_TEXT: Record<Sex, { title: string; example: string; created: string }> = {
+  MALE: {
+    title: 'Registrar padre externo',
+    example: 'Macho {species} ajeno a la cabaña (p. ej. donante de semen o carnero de otra cabaña).',
+    created: 'Padre externo registrado',
+  },
+  FEMALE: {
+    title: 'Registrar madre externa',
+    example: 'Hembra {species} ajena a la cabaña (p. ej. la madre de un animal comprado o regalado).',
+    created: 'Madre externa registrada',
+  },
+}
+
+/** Registrar un padre o una madre externos sin salir del formulario del animal. */
+export function QuickExternalParentDialog({ open, species, sex, onClose, onCreated }: QuickExternalParentDialogProps) {
+  const text = PARENT_TEXT[sex]
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      title="Registrar reproductor externo"
-      description={`Macho ${SPECIES_LABELS[species].toLowerCase()} ajeno a la cabaña (p. ej. donante de semen). Solo existe para la genealogía.`}
+      title={text.title}
+      description={`${text.example.replace('{species}', SPECIES_LABELS[species].toLowerCase())} Solo existe para la genealogía.`}
       bare
     >
-      <QuickExternalForm key={species} species={species} onDone={onClose} onCreated={onCreated} />
+      <QuickExternalForm
+        key={`${species}-${sex}`}
+        species={species}
+        sex={sex}
+        createdMessage={text.created}
+        onDone={onClose}
+        onCreated={onCreated}
+      />
     </Dialog>
   )
 }
 
 function QuickExternalForm({
   species,
+  sex,
+  createdMessage,
   onDone,
   onCreated,
 }: {
   species: Species
+  sex: Sex
+  createdMessage: string
   onDone(): void
   onCreated(parent: ParentRef): void
 }) {
@@ -46,7 +73,6 @@ function QuickExternalForm({
     earTag: '',
     name: '',
     breedId: '',
-    absidRegistry: '',
     externalRegistry: '',
     sourceFarm: '',
   })
@@ -58,25 +84,24 @@ function QuickExternalForm({
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
-    if (!values.earTag.trim() && !values.name.trim() && !values.absidRegistry.trim() && !values.externalRegistry.trim()) {
-      setError('Indique al menos arete, nombre, registro ABSID o registro externo.')
+    if (!values.earTag.trim() && !values.name.trim() && !values.externalRegistry.trim()) {
+      setError('Indique al menos arete, nombre o registro externo ABSID.')
       return
     }
     create.mutate(
       {
         isExternal: true,
         species,
-        sex: 'MALE',
+        sex,
         breedId: values.breedId,
         earTag: optional(values.earTag),
         name: optional(values.name),
-        absidRegistry: optional(values.absidRegistry),
         externalRegistry: optional(values.externalRegistry),
         sourceFarm: optional(values.sourceFarm),
       },
       {
         onSuccess: (animal) => {
-          toast.show('Reproductor externo registrado')
+          toast.show(createdMessage)
           onCreated({ id: animal.id, earTag: animal.earTag, name: animal.name, isExternal: true })
           onDone()
         },
@@ -104,13 +129,7 @@ function QuickExternalForm({
             ))}
           </SelectField>
           <TextField
-            label="Registro ABSID"
-            maxLength={50}
-            value={values.absidRegistry}
-            onChange={set('absidRegistry', upper)}
-          />
-          <TextField
-            label="Registro externo"
+            label="Registro externo ABSID"
             hint="Otra entidad o código en el centro de semen"
             maxLength={100}
             value={values.externalRegistry}

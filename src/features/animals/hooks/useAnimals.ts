@@ -15,6 +15,8 @@ export const animalsKeys = {
   list: (filters: AnimalFilters) => [...animalsKeys.lists, filters] as const,
   detail: (id: string) => [...animalsKeys.all, 'detail', id] as const,
   categoryHistory: (id: string) => [...animalsKeys.all, 'detail', id, 'genetic-category'] as const,
+  /** Bajo `detail`: se refresca cuando cambia la ficha. */
+  pedigree: (id: string, generations: number) => [...animalsKeys.all, 'detail', id, 'pedigree', generations] as const,
 }
 
 export function useAnimals(filters: AnimalFilters, options: { enabled?: boolean } = {}) {
@@ -31,6 +33,15 @@ export function useAnimal(id: string | undefined) {
     queryKey: animalsKeys.detail(id ?? ''),
     queryFn: () => animalsApi.get(id!),
     enabled: !!id,
+  })
+}
+
+export function usePedigree(id: string, generations: number) {
+  return useQuery({
+    queryKey: animalsKeys.pedigree(id, generations),
+    queryFn: () => animalsApi.pedigree(id, generations),
+    // Al cambiar de generaciones se mantiene el árbol anterior; al cambiar de animal, no.
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[2] === id ? previous : undefined),
   })
 }
 
@@ -79,6 +90,8 @@ export function useChangeAnimalStatus() {
         onChanged(animal),
         queryClient.invalidateQueries({ queryKey: REPRODUCTION_KEY }),
         queryClient.invalidateQueries({ queryKey: REMINDERS_KEY }),
+        // Un animal que sale del inventario deja de tener controles.
+        queryClient.invalidateQueries({ queryKey: ['controls'] }),
       ]),
   })
 }

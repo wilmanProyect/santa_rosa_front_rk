@@ -1,5 +1,6 @@
 import { AnimalDetailPage, type AnimalExtraTab } from '@/features/animals'
 import { useAuth } from '@/features/auth'
+import { AnimalJustificationsCard } from '@/features/controls'
 import { AnimalHealthPanel } from '@/features/health'
 import { AnimalReproductionPanel } from '@/features/reproduction'
 import { PERMISSIONS } from '@/shared/config/permissions'
@@ -31,5 +32,11 @@ export function AnimalDetailRoute() {
     ...(can(PERMISSIONS.HEALTH_READ) ? [HEALTH_TAB] : []),
     ...(can(PERMISSIONS.REPRODUCTION_READ) ? [REPRODUCTION_TAB] : []),
   ]
-  return <AnimalDetailPage extraTabs={extraTabs} />
+  return (
+    <AnimalDetailPage
+      extraTabs={extraTabs}
+      // Los reproductores externos no tienen controles.
+      dataSections={(animal) => !animal.isExternal && <AnimalJustificationsCard animalId={animal.id} />}
+    />
+  )
 }

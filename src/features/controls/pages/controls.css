@@ -1,0 +1,126 @@
+/* ---------- Pantalla Controles ---------- */
+.table__check {
+  width: 40px;
+  text-align: center;
+}
+
+.table tr.is-selected td {
+  background: var(--color-primary-soft);
+}
+
+.stack--xs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.controls-actions {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+/* Barra que aparece con animales seleccionados. */
+.controls-selection {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  background: var(--color-primary-soft);
+  box-shadow: var(--shadow-sm);
+}
+
+.controls-justification {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 280px;
+}
+
+.controls-justification .icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-accent);
+}
+
+.controls-justification > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.controls-justification__reason {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Motivos sugeridos en el diálogo "Justificar". */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -6px;
+}
+
+.suggestion {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.suggestion:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+/* ---------- Tarjetas de resumen (inicio) ---------- */
+.controls-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0 0 28px;
+  padding: 0;
+  list-style: none;
+}
+
+.controls-summary__card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  padding: 16px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.controls-summary__card:hover {
+  border-color: var(--color-accent);
+}
+
+.controls-summary__card strong {
+  color: var(--color-heading);
+}
+
+.controls-summary__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

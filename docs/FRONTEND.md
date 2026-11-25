@@ -25,7 +25,8 @@ El contrato completo de cada endpoint (todos los campos, todos los códigos de e
 17. [Módulo: Reproducción](#17-módulo-reproducción)
 18. [Módulo: Datos por revisar](#18-módulo-datos-por-revisar)
 19. [Módulo: Copias de seguridad](#19-módulo-copias-de-seguridad)
-20. [Orden sugerido de implementación](#20-orden-sugerido-de-implementación)
+20. [Módulo: Notificaciones y controles](#20-módulo-notificaciones-y-controles)
+21. [Orden sugerido de implementación](#21-orden-sugerido-de-implementación)
 
 ---
 
@@ -288,6 +289,7 @@ export const PERMISSIONS = {
   AUDIT_READ: 'audit:read',
   BACKUPS_CREATE: 'backups:create',
   BACKUPS_RESTORE: 'backups:restore',
+  NOTIFICATIONS_SETTINGS: 'notifications:settings',
 } as const;
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
@@ -312,6 +314,10 @@ export const can = (granted: string[], ...required: Permission[]) =>
 | Menú **Auditoría de accesos** | `audit:read` |
 | Botón **Descargar copia de seguridad** | `backups:create` |
 | Sección **Restaurar una copia de seguridad** | `backups:create` (para ver la pantalla) + `backups:restore` |
+| Campana, lista de notificaciones y notificaciones push | Solo sesión |
+| Pantalla **Controles**: pestañas Destete y Control de peso (ver y justificar) | `weighings:write` |
+| Pantalla **Controles**: pestaña Control sanitario (ver y justificar) | `health:write` |
+| Sección **Controles y avisos** en Configuración | `notifications:settings` |
 | Menú **Animales** (listado, ficha, genealogía, galería) | `animals:read` |
 | Registrar animal | `animals:create` |
 | Editar animal, subir/quitar certificado | `animals:update` |
@@ -1462,7 +1468,7 @@ Estructura sugerida de la ficha (`GET /animals/:id`):
 
 - **Encabezado:** foto principal, arete, nombre, especie, raza, sexo, edad, estado e insignias (externo, caso especial).
 - **Datos:** identificación, registros, nacimiento y destete, ingreso, observaciones.
-- **Genealogía:** `dam` y `sire` enlazados a sus fichas. Para subir un nivel más (abuelos), pida la ficha de cada padre.
+- **Genealogía:** árbol de `GET /animals/:id/pedigree` ([12.7.1](#1271-árbol-genealógico)). No pida la ficha de cada padre para sacar los abuelos: el endpoint trae todo en una sola consulta.
 - **Crías:** `GET /animals?parentId=<id>`. Devuelve las crías de la cabaña donde el animal es madre o padre. Funciona igual para un reproductor externo.
 - **Fotos:** galería ([sección 13](#13-módulo-fotos-de-animales)).
 - **Certificado ABSID:** código y archivo.
@@ -1471,6 +1477,64 @@ Estructura sugerida de la ficha (`GET /animals/:id`):
 - **Datos por revisar:** aviso arriba de la ficha si el animal tiene avisos pendientes ([sección 18](#18-módulo-datos-por-revisar)).
 - **Botón "Emitir certificado":** PDF con toda la ficha ([12.6.1](#1261-certificado-del-animal-pdf-generado)).
 - **Auditoría:** creado y modificado (fecha y usuario).
+
+### 12.7.1 Árbol genealógico
+
+`GET /animals/:id/pedigree?generations=4` → `Pedigree` (ver [API.md](API.md#get-animalsanimalidpedigree)). Reemplaza la vista actual de padres y abuelos.
+
+```ts
+export interface PedigreeTreeNode {
+  id: Uuid;
+  earTag: string | null;
+  name: string | null;
+  sex: Sex;
+  birthDate: DateOnly | null;
+  isExternal: boolean;
+  status: AnimalStatus;
+  geneticCategory: GeneticCategory | null;
+  absidRegistry: string | null;
+  breedName: string | null;
+  /** 0 = el animal, 1 = padres, 2 = abuelos... */
+  generation: number;
+  /** null = desconocido. No vienen en la última generación pedida. */
+  dam?: PedigreeTreeNode | null;
+  sire?: PedigreeTreeNode | null;
+  /** Solo en la última generación: tiene padres registrados (se puede ampliar). */
+  hasMoreAncestors?: boolean;
+}
+
+export interface Pedigree {
+  generations: number;
+  tree: PedigreeTreeNode;
+  completeness: { generation: number; known: number; possible: number }[];
+  repeatedAncestors: { id: Uuid; earTag: string | null; name: string | null; occurrences: number }[];
+  inbreeding: {
+    coefficient: number;
+    relationship: string | null;
+    commonAncestors: { id: Uuid; earTag: string | null; name: string | null; description: string }[];
+  } | null;
+}
+
+export const GENERATION_LABEL = ['Animal', 'Padres', 'Abuelos', 'Bisabuelos', 'Tatarabuelos', '5.ª generación', '6.ª generación'];
+```
+
+**Dibujo:**
+- **Árbol horizontal clásico:** el animal a la izquierda y cada generación en una columna hacia la derecha, con la madre arriba y el padre abajo, unidos con líneas. Encabece cada columna con `GENERATION_LABEL[generation]`.
+- **Tamaño de las casillas:** con 4 generaciones hay 16 en la última columna. Use casillas compactas (arete y nombre) y muestre el resto (raza, categoría, ABSID, fecha de nacimiento) en un tooltip o al pasar el mouse. En pantallas angostas, permita desplazarse en horizontal dentro del árbol o use una lista indentada.
+- **Contenido de cada casilla:** arete y nombre, enlazados a la ficha (`/animales/:id`); insignia **Externo** si `isExternal`; y la categoría genética.
+- **Casilla vacía y punteada** con "Desconocido" cuando `dam` o `sire` es `null`. Con permiso `animals:update`, se puede ofrecer un enlace "Cargar" a la ficha del hijo, para completar la madre o el padre.
+- **Ancestros repetidos** (`repeatedAncestors`): resalte todas sus apariciones con el mismo color o borde, y explique al lado: "Aparece 2 veces".
+- **Última columna:** si `hasMoreAncestors`, muestre una flecha "…" que amplía el árbol, pidiendo de nuevo con `generations + 1` (máximo 6).
+
+**Arriba del árbol:**
+- **Selector de generaciones:** 2 · 3 · **4** · 5 · 6.
+- **Completitud:** una barra por generación con `known / possible` (por ejemplo, "Bisabuelos: 2 de 8"). Sirve para ver qué falta cargar.
+- **Consanguinidad**, si `inbreeding` no es `null`:
+  - con `coefficient` mayor que 0, una alerta: *"Consanguinidad: 25 % — los padres son padre/madre e hijo/a (ancestro común: SA-611 VESUVIO)"*. En naranja si es menor o igual a 6,25 %, en rojo si es mayor;
+  - con `coefficient` igual a 0, "Sin consanguinidad en N generaciones".
+
+  Aclare que el cálculo solo ve los ancestros registrados.
+- **Crías:** debajo, la lista de crías como hasta ahora (`GET /animals?parentId=<id>`).
 
 ### 12.8 Eliminar
 
@@ -1893,7 +1957,294 @@ Sección en la misma pantalla, visible solo con `backups:restore`. Detalle en [A
 
 ---
 
-## 20. Orden sugerido de implementación
+## 20. Módulo: Notificaciones y controles
+
+Avisos en una **campana** y como **notificaciones push** del navegador, una pantalla de **Controles** (destete, peso y sanidad) donde se registra o se justifica lo atrasado, y la configuración de los intervalos. Referencia en [API.md](API.md#notificaciones-y-controles).
+
+### 20.1 Tipos
+
+```ts
+export type NotificationType = 'BIRTH_UPCOMING' | 'WEANING_DUE' | 'WEIGHING_DUE' | 'HEALTH_DUE';
+export type ControlType = 'WEANING' | 'WEIGHING' | 'HEALTH';
+export type ControlState = 'OVERDUE' | 'TODAY' | 'UPCOMING' | 'LATER';
+
+export interface NotificationTarget {
+  type: 'BREEDING_SERVICE' | 'CONTROLS';
+  /** Id de la monta (BREEDING_SERVICE). */
+  id: Uuid | null;
+  /** Tipo de control (CONTROLS). */
+  filter: ControlType | null;
+}
+
+export interface AppNotification {
+  id: Uuid;
+  type: NotificationType;
+  title: string;
+  body: string;
+  target: NotificationTarget | null;
+  createdAt: DateTime;
+  readAt: DateTime | null;
+}
+
+export interface ControlItem {
+  animalId: Uuid;
+  earTag: string | null;
+  name: string | null;
+  species: Species;
+  sex: Sex;
+  birthDate: DateOnly | null;
+  /** Último pesaje o registro sanitario (null en el destete). */
+  lastDate: DateOnly | null;
+  baseDueDate: DateOnly;
+  /** Vencimiento vigente (el reprogramado si hay justificación). */
+  dueDate: DateOnly;
+  state: ControlState;
+  daysOverdue: number;
+  justification: {
+    reason: string;
+    nextDueDate: DateOnly | null;
+    createdAt: DateTime;
+    createdBy: Uuid | null;
+  } | null;
+}
+
+export interface ControlCounts {
+  overdue: number;
+  today: number;
+  upcoming: number;
+  enteringUpcoming: number;
+  newlyOverdue: number;
+}
+
+export interface ControlJustification {
+  id: Uuid;
+  animalId: Uuid;
+  type: ControlType;
+  resolvedDueDate: DateOnly;
+  /** null = destete cerrado. */
+  nextDueDate: DateOnly | null;
+  reason: string;
+  createdAt: DateTime;
+  createdBy: Uuid | null;
+  createdByName: string | null;
+}
+
+export interface NotificationSettings {
+  weighingIntervalMonths: number;   // 1–24
+  healthIntervalMonths: number;     // 1–24
+  weaningAgeMonths: number;         // 1–12
+  weaningTrackingFrom: DateOnly;
+  upcomingDays: number;             // 1–30
+  runHour: number;                  // 0–23
+  lastRunOn: DateOnly | null;
+  updatedAt: DateTime;
+  updatedBy: Uuid | null;
+}
+
+export const CONTROL_LABEL: Record<ControlType, string> = {
+  WEANING: 'Destete',
+  WEIGHING: 'Control de peso',
+  HEALTH: 'Control sanitario',
+};
+
+export const CONTROL_STATE_LABEL: Record<ControlState, string> = {
+  OVERDUE: 'Atrasado',
+  TODAY: 'Hoy',
+  UPCOMING: 'Próximo',
+  LATER: 'Más adelante',
+};
+
+/** Permiso para ver y justificar cada control. */
+export const CONTROL_PERMISSION: Record<ControlType, Permission> = {
+  WEANING: PERMISSIONS.WEIGHINGS_WRITE,
+  WEIGHING: PERMISSIONS.WEIGHINGS_WRITE,
+  HEALTH: PERMISSIONS.HEALTH_WRITE,
+};
+
+/** Pantalla a la que lleva una notificación (también la usa el service worker). */
+export function notificationUrl(target: NotificationTarget | null): string {
+  if (target?.type === 'BREEDING_SERVICE' && target.id) return REPRODUCTION_ROUTES.serviceDetail(target.id);
+  if (target?.type === 'CONTROLS') return `/controles?tipo=${target.filter ?? 'WEANING'}`;
+  return '/notificaciones';
+}
+```
+
+### 20.2 Campana
+
+- **Ícono 🔔 en la barra superior,** visible para todos los usuarios, con el número de `GET /notifications/unread-count` (oculto si es 0; "99+" si pasa de 99).
+- **Actualización del número:**
+  - al cargar la aplicación;
+  - **cada 60 segundos** mientras la pestaña está visible (`document.visibilityState === 'visible'`);
+  - al volver a la pestaña;
+  - cuando llega un push (ver 20.3).
+- **Al abrirla:** un panel con las 10 últimas (`GET /notifications?limit=10`). Las no leídas van resaltadas, con título, texto y tiempo relativo ("hace 2 h"). Debajo, los enlaces "Marcar todas como leídas" (`POST /notifications/read-all`) y "Ver todas".
+- **Al tocar una:** márquela como leída (`PATCH /notifications/:id/read`) y vaya a `notificationUrl(target)`.
+- **Pantalla `/notificaciones`:** la lista completa paginada, con un filtro "Solo no leídas" (`unreadOnly=true`).
+- **Ícono por tipo:**
+  - parto: corazón o cría;
+  - destete: biberón;
+  - peso: balanza;
+  - sanidad: escudo o jeringa.
+
+### 20.3 Notificaciones push (en el navegador)
+
+Llegan aunque la página esté cerrada. Funcionan en Chrome, Edge y Firefox (Windows, Android). En iPhone y iPad solo funcionan si el usuario agrega la página a la pantalla de inicio (iOS 16.4 o posterior). Requieren HTTPS, que ya hay en producción, o `localhost`.
+
+**1. Service worker: `public/sw.js`.** Se sirve desde la raíz del sitio y sin caché (el `location /` de nginx ya pone `no-cache`).
+
+```js
+// public/sw.js — recibe los push y abre la pantalla al tocarlos.
+const ROUTES = {
+  BREEDING_SERVICE: (t) => `/reproduccion/montas/${t.id}`,
+  CONTROLS: (t) => `/controles?tipo=${t.filter ?? 'WEANING'}`,
+};
+const urlFor = (target) => (target && ROUTES[target.type] ? ROUTES[target.type](target) : '/notificaciones');
+
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : {};
+  event.waitUntil((async () => {
+    await self.registration.showNotification(data.title ?? 'Santa Rosa', {
+      body: data.body ?? '',
+      icon: '/icon-192.png',
+      badge: '/badge-72.png',
+      tag: data.id,          // el mismo aviso no se apila dos veces
+      data: { url: urlFor(data.target) },
+    });
+    // Avisa a las pestañas abiertas para que actualicen la campana.
+    for (const client of await self.clients.matchAll({ type: 'window' })) {
+      client.postMessage({ type: 'notification-received' });
+    }
+  })());
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url ?? '/';
+  event.waitUntil((async () => {
+    for (const client of await self.clients.matchAll({ type: 'window', includeUncontrolled: true })) {
+      if ('focus' in client) {
+        await client.focus();
+        client.postMessage({ type: 'navigate', url });
+        return;
+      }
+    }
+    await self.clients.openWindow(url);
+  })());
+});
+```
+
+**2. En la aplicación:**
+
+- **Registrar el service worker al iniciar:** `navigator.serviceWorker.register('/sw.js')`.
+- **Escuchar los mensajes del worker** con `navigator.serviceWorker.addEventListener('message', ...)`:
+  - `notification-received`: vuelve a consultar la campana;
+  - `navigate`: `navigate(url)` con React Router.
+
+**3. Activar o desactivar** (en el perfil o en Configuración: "Notificaciones en este dispositivo"):
+
+```ts
+const urlBase64ToUint8Array = (base64: string) => {
+  const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+};
+
+export async function enablePush(): Promise<'enabled' | 'denied' | 'unsupported'> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported';
+  if ((await Notification.requestPermission()) !== 'granted') return 'denied';
+  const registration = await navigator.serviceWorker.ready;
+  const { publicKey } = await api.get<{ publicKey: string }>('/notifications/push/public-key');
+  const subscription =
+    (await registration.pushManager.getSubscription()) ??
+    (await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    }));
+  await api.post('/notifications/push/subscriptions', subscription.toJSON());
+  return 'enabled';
+}
+
+export async function disablePush(): Promise<void> {
+  const subscription = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+  if (!subscription) return;
+  await api.delete('/notifications/push/subscriptions', { endpoint: subscription.endpoint });
+  await subscription.unsubscribe();
+}
+```
+
+**Pautas:**
+- Pida el permiso **solo al tocar el botón**: los navegadores bloquean los pedidos automáticos.
+- **Estado del botón:**
+  - Activadas: `Notification.permission === 'granted'` y hay suscripción.
+  - Bloqueadas: `'denied'`. Explique cómo habilitarlas en el candado de la barra de direcciones.
+  - No disponibles: navegador sin soporte. Muestre un mensaje.
+- **Botón "Enviar prueba"** con las notificaciones activadas: `POST /notifications/push/test`.
+- **Al iniciar sesión:** si el permiso es `granted` y existe una suscripción, vuelva a enviarla con `POST /notifications/push/subscriptions`. El navegador puede haber cambiado de usuario.
+- **Al cerrar sesión:** llame a `DELETE /notifications/push/subscriptions` **antes** de borrar el token, para que el próximo usuario del equipo no reciba los avisos del anterior.
+- **Íconos:** agregue `icon-192.png` (192×192) y `badge-72.png` (72×72, monocromo) en `public/`.
+
+### 20.4 Pantalla "Controles"
+
+- **Ruta y menú:** ruta `/controles?tipo=WEANING|WEIGHING|HEALTH`. Entrada en el menú lateral "Controles", visible con `weighings:write` o `health:write`.
+
+**Encabezado:**
+- **Pestañas** Destete · Control de peso · Control sanitario, solo las que permite `CONTROL_PERMISSION`. Cada pestaña lleva un contador de atrasados de `GET /controls/summary`.
+- **Filtro de estado** (`state`): Pendientes (por defecto) · Atrasados · Hoy · Próximos · Más adelante.
+- **Buscador** por arete o nombre (`search`).
+
+**Tabla** (`GET /controls?type=...&state=...`):
+- **Animal:** arete y nombre, con enlace a la ficha.
+- **Edad**, sobre todo en el destete.
+- **Último control** (`lastDate`): pesaje o registro sanitario. "Sin registros" si es `null`.
+- **Vence** (`dueDate`), con una etiqueta por `state`. Atrasado va en rojo y dice "hace N días" (`daysOverdue`); Hoy, en naranja; Próximo, en azul.
+- **Justificación:** si `justification` no es `null`, un ícono con el motivo y "Reprogramado al dd/mm/aaaa".
+- **Acciones:**
+  - **Registrar:** abre el formulario que ya existe, con el animal precargado. En el destete es un pesaje de tipo `WEANING`; en el control de peso, un pesaje; en el sanitario, un evento sanitario. Al guardar, el animal sale de la lista (vuelva a consultar).
+  - **Justificar:** abre el diálogo de 20.5 para ese animal.
+
+**Selección múltiple:** casillas por fila y "Seleccionar todos (de esta página)". Con selección aparece **"Justificar seleccionados (N)"**, que manda todos en un solo `POST` (hasta 500).
+
+**En el inicio:** muestre tarjetas con `GET /controls/summary` (atrasados y para hoy de cada control), que llevan a esta pantalla. Pueden convivir con las de la [sección 16](#16-recordatorios-en-el-inicio).
+
+### 20.5 Diálogo "Justificar"
+
+`POST /controls/justifications` con `{ type, animalIds, reason, nextDueDate? }`.
+
+- **Motivo** (obligatorio, de 5 a 500 caracteres). Ofrezca sugerencias que el usuario pueda editar:
+  - Destete: "Cría débil, se desteta cuando gane peso", "Destetado antes de usar el sistema", "La madre murió: crianza artificial".
+  - Peso: "Balanza en reparación", "Animal en otro potrero".
+  - Sanidad: "Sin veterinario disponible", "Producto agotado".
+- **Nueva fecha del control:**
+  - **Peso y sanidad:** obligatoria. Debe ser posterior a hoy y a menos de un año; por defecto, hoy + 15 días.
+  - **Destete:** dos opciones:
+    - "Reprogramar al…", con fecha;
+    - **"Cerrar el destete de este animal"**: se envía sin `nextDueDate`. Advierta que el animal dejará de aparecer en Destete.
+- **Errores (`400`):**
+  - si responde con `animalIds`, esos animales ya no tienen el control pendiente: quítelos de la selección y avise;
+  - si la fecha es anterior al vencimiento original, muestre el mensaje.
+- **Al guardar:** cierre el diálogo, avise "N controles justificados" y vuelva a consultar la lista.
+
+**En la ficha del animal:** agregue un bloque "Controles justificados" con `GET /controls/justifications?animalId=...`. Muestre tipo, vencimiento, motivo, nueva fecha ("Cerrado" si es `null`), quién lo hizo (`createdByName`) y cuándo.
+
+### 20.6 Configuración de controles
+
+En `/configuracion`, una sección **"Controles y avisos"**, visible con `notifications:settings` (`GET` y `PATCH /notification-settings`):
+
+| Campo | Control | Ayuda |
+| --- | --- | --- |
+| Control de peso cada | número (1–24) + "meses" | "Desde el último pesaje del animal" |
+| Control sanitario cada | número (1–24) + "meses" | "Desde el último registro sanitario (vacuna, desparasitación, vitaminas, tratamiento o diagnóstico)" |
+| Edad de destete | número (1–12) + "meses" | |
+| Seguir el destete de los nacidos desde | fecha (no futura) | "Los nacidos antes no aparecen en Destete" |
+| Avisar con anticipación | número (1–30) + "días" | "Cuándo un control pasa a Próximo" |
+| Hora de la revisión diaria | hora (0–23) | "Hora de Bolivia" |
+
+- **Guardar:** envía solo lo modificado y muestra "Guardado".
+- **Debajo:** "Última revisión: dd/mm/aaaa" (`lastRunOn`) y el botón **"Revisar ahora"** (`POST /notification-settings/run`). Muestra cuántos avisos se crearon (`created`).
+- **Aviso de los avisos de parto:** a 10, 5, 2 y 1 días, y el día del parto probable. Son fijos.
+
+---
+
+## 21. Orden sugerido de implementación
 
 1. **Base:** cliente HTTP con refresh ([sección 2](#2-cliente-http-tokens-refresh-y-errores)), tipos y etiquetas.
 2. **Autenticación:** login, cambio de contraseña obligatorio, sesión al recargar, logout, guard de rutas.
@@ -1911,6 +2262,7 @@ Sección en la misma pantalla, visible solo con `backups:restore`. Detalle en [A
 14. **Registro sanitario:** pestaña de sanidad, alta por categoría, aplicación masiva, eventos generales, alerta de retiro.
 15. **Recordatorios** en el inicio.
 16. **Reproducción:** formulario de monta con revisión en vivo, listado por estado, diagnóstico, parto con una fila por cría, pestaña en la ficha, indicadores, confirmación de categoría.
+17. **Notificaciones y controles:** campana con consulta cada 60 s, pantalla de controles con justificación (individual y múltiple), configuración, y por último el service worker con las notificaciones push.
 
 ### Checklist rápido
 
@@ -1931,3 +2283,7 @@ Sección en la misma pantalla, visible solo con `backups:restore`. Detalle en [A
 - [ ] `KINSHIP_CONFLICT` muestra el parentesco y, solo con `canOverride`, la opción de autorizar con justificación.
 - [ ] El parto exige arete y sexo en las crías vivas, y muestra los `warnings` después de guardar.
 - [ ] La categoría esperada se ve distinta de la confirmada en listados y fichas.
+- [ ] La campana se actualiza cada 60 s (solo con la pestaña visible) y al llegar un push.
+- [ ] El permiso de notificaciones se pide solo al tocar el botón, y al cerrar sesión se borra la suscripción **antes** del token.
+- [ ] `sw.js` se sirve desde la raíz y sin caché.
+- [ ] Justificar peso o sanidad exige nueva fecha; en el destete se puede cerrar sin fecha.

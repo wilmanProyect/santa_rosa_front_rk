@@ -1,5 +1,8 @@
 import { AUTH_ROUTES, useAuth } from '@/features/auth'
+import { NotificationSettingsSection, NOTIFICATIONS_ROUTES, PushSettingsCard } from '@/features/notifications'
+import { PERMISSIONS } from '@/shared/config/permissions'
 import { setThemePreference, useThemePreference, type ThemePreference } from '@/shared/lib/theme'
+import { isNavItemAllowed } from '@/shared/lib/navigation'
 import { Icon, ModuleCard, ModuleGrid, PageHeader, type IconName } from '@/shared/ui'
 import { NAVIGATION } from '../navigation'
 
@@ -43,13 +46,14 @@ export const SETTINGS_PATHS = [
   SETTINGS_ROUTE,
   AUTH_ROUTES.profile,
   AUTH_ROUTES.changePassword,
+  NOTIFICATIONS_ROUTES.list,
   ...NAVIGATION.filter((item) => item.placement === 'settings').map((item) => item.to),
 ]
 
 /** Configuración: la cuenta del usuario y los módulos de sistema (copias, auditoría). */
 export function SettingsPage() {
   const { can, logout } = useAuth()
-  const systemItems = NAVIGATION.filter((item) => item.placement === 'settings' && can(...item.permissions))
+  const systemItems = NAVIGATION.filter((item) => item.placement === 'settings' && isNavItemAllowed(item, can))
 
   return (
     <>
@@ -83,6 +87,14 @@ export function SettingsPage() {
         Apariencia
       </h2>
       <ThemeChoice />
+
+      <h2 className="section-title" style={{ marginTop: 32 }}>
+        Notificaciones
+      </h2>
+      <div className="stack">
+        <PushSettingsCard />
+        {can(PERMISSIONS.NOTIFICATIONS_SETTINGS) && <NotificationSettingsSection />}
+      </div>
 
       {systemItems.length > 0 && (
         <>

@@ -70,6 +70,8 @@ function useInvalidateHealth() {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: healthKeys.records }),
       queryClient.invalidateQueries({ queryKey: healthKeys.reminders }),
+      // Un registro sanitario cumple el control sanitario (feature controls).
+      queryClient.invalidateQueries({ queryKey: ['controls'] }),
       ...animalIds
         .filter((id): id is string => !!id)
         .map((id) => queryClient.invalidateQueries({ queryKey: animalsKeys.detail(id) })),

@@ -54,7 +54,13 @@ export interface AnimalExtraTab {
 
 const BASE_TABS = ['datos', 'pesajes', 'genealogia', 'fotos']
 
-export function AnimalDetailPage({ extraTabs = [] }: { extraTabs?: AnimalExtraTab[] }) {
+interface AnimalDetailPageProps {
+  extraTabs?: AnimalExtraTab[]
+  /** Bloques que otros módulos agregan al final de la pestaña "Datos" (p. ej. controles justificados). */
+  dataSections?: (animal: AnimalDetail) => ReactNode
+}
+
+export function AnimalDetailPage({ extraTabs = [], dataSections }: AnimalDetailPageProps) {
   const { animalId } = useParams()
   const { data: animal, isPending, isError, error } = useAnimal(animalId)
 
@@ -67,7 +73,7 @@ export function AnimalDetailPage({ extraTabs = [] }: { extraTabs?: AnimalExtraTa
     )
   }
   if (isPending) return <Spinner />
-  return <AnimalDetailView animal={animal} extraTabs={extraTabs} />
+  return <AnimalDetailView animal={animal} extraTabs={extraTabs} dataSections={dataSections} />
 }
 
 function BackLink({ external }: { external?: boolean }) {
@@ -78,7 +84,15 @@ function BackLink({ external }: { external?: boolean }) {
   )
 }
 
-function AnimalDetailView({ animal, extraTabs }: { animal: AnimalDetail; extraTabs: AnimalExtraTab[] }) {
+function AnimalDetailView({
+  animal,
+  extraTabs,
+  dataSections,
+}: {
+  animal: AnimalDetail
+  extraTabs: AnimalExtraTab[]
+  dataSections?: (animal: AnimalDetail) => ReactNode
+}) {
   const { can } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
@@ -197,7 +211,12 @@ function AnimalDetailView({ animal, extraTabs }: { animal: AnimalDetail; extraTa
         onChange={setTab}
       />
 
-      {tab === 'datos' && <AnimalData animal={animal} />}
+      {tab === 'datos' && (
+        <div className="stack">
+          <AnimalData animal={animal} />
+          {dataSections?.(animal)}
+        </div>
+      )}
       {tab === 'genealogia' && <Genealogy animal={animal} />}
       {tab === 'fotos' && <PhotoGallery animal={animal} />}
       {tab === 'pesajes' && <WeighingsPanel animal={animal} />}
@@ -258,7 +277,7 @@ function AnimalData({ animal }: { animal: AnimalDetail }) {
       <Card title="Registros">
         {/* El registro externo de un reproductor externo es su ABSID: se muestra uno u otro. */}
         {animal.isExternal ? (
-          <DataItem label="Registro externo" value={animal.externalRegistry} />
+          <DataItem label="Registro externo ABSID" value={animal.externalRegistry} />
         ) : (
           <DataItem label="Registro ABSID" value={animal.absidRegistry} />
         )}

@@ -32,6 +32,7 @@ Salvo los marcados como **Público**, todos los endpoints exigen un access token
 - [Reproducción](#reproducción)
 - [Recordatorios](#recordatorios)
 - [Revisión de datos](#revisión-de-datos)
+- [Notificaciones y controles](#notificaciones-y-controles)
 - [Copias de seguridad](#copias-de-seguridad)
 - [Sistema](#sistema)
 - [Modelos de respuesta](#modelos-de-respuesta)
@@ -164,6 +165,7 @@ Los define el sistema en [`permission-catalog.ts`](../src/modules/roles-permissi
 | `audit:read` | Auditoría | Ver el historial de inicios de sesión |
 | `backups:create` | Sistema | Descargar una copia de seguridad completa (base de datos, fotos y archivos) |
 | `backups:restore` | Sistema | Restaurar una copia de seguridad (reemplaza todos los datos y archivos; antes se guarda un respaldo del estado actual) |
+| `notifications:settings` | Sistema | Configurar los controles (meses entre controles de peso y sanitarios, edad de destete) y la revisión diaria de avisos |
 
 **Permisos efectivos** = permisos de los roles activos del usuario + permisos otorgados individualmente − permisos denegados individualmente. Una denegación gana sobre lo que digan los roles. El frontend puede usar `effectivePermissions` (o `user.permissions` en el login) para mostrar u ocultar opciones.
 
@@ -262,6 +264,7 @@ Los define el sistema en [`permission-catalog.ts`](../src/modules/roles-permissi
 | `GET` | [`/breeding/births/:id`](#get--patch-breedingbirthsid) | `reproduction:read` |
 | `PATCH` | [`/breeding/births/:id`](#get--patch-breedingbirthsid) | `reproduction:write` |
 | `GET` | [`/breeding/stats`](#get-breedingstats) | `reproduction:read` |
+| `GET` | [`/animals/:animalId/pedigree`](#get-animalsanimalidpedigree) | `animals:read` |
 | `GET` | [`/animals/:animalId/reproduction`](#get-animalsanimalidreproduction) | `reproduction:read` |
 | `GET` | [`/reminders`](#recordatorios) | `animals:read` + `health:read` (diagnósticos y partos: + `reproduction:read`) |
 | `GET` | [`/reviews`](#get-reviews) | `reviews:read` |
@@ -270,6 +273,21 @@ Los define el sistema en [`permission-catalog.ts`](../src/modules/roles-permissi
 | `POST` | [`/reviews`](#post-reviews) | `reviews:create` |
 | `POST` | [`/reviews/:id/resolve`](#post-reviewsidresolve) | `reviews:resolve` |
 | `POST` | [`/reviews/:id/reopen`](#post-reviewsidreopen) | `reviews:resolve` |
+| `GET` | [`/notifications`](#get-notifications) | — |
+| `GET` | [`/notifications/unread-count`](#get-notificationsunread-count) | — |
+| `PATCH` | [`/notifications/:id/read`](#patch-notificationsidread--post-notificationsread-all) | — |
+| `POST` | [`/notifications/read-all`](#patch-notificationsidread--post-notificationsread-all) | — |
+| `GET` | [`/notifications/push/public-key`](#notificaciones-push) | — |
+| `POST` | [`/notifications/push/subscriptions`](#notificaciones-push) | — |
+| `DELETE` | [`/notifications/push/subscriptions`](#notificaciones-push) | — |
+| `POST` | [`/notifications/push/test`](#notificaciones-push) | — |
+| `GET` | [`/controls`](#get-controls) | `weighings:write` (destete, peso) / `health:write` (sanidad) |
+| `GET` | [`/controls/summary`](#get-controlssummary) | — (trae solo los controles permitidos) |
+| `POST` | [`/controls/justifications`](#post-controlsjustifications) | el del control |
+| `GET` | [`/controls/justifications`](#get-controlsjustifications) | el del control |
+| `GET` | [`/notification-settings`](#get--patch-notification-settings) | `notifications:settings` |
+| `PATCH` | [`/notification-settings`](#get--patch-notification-settings) | `notifications:settings` |
+| `POST` | [`/notification-settings/run`](#post-notification-settingsrun) | `notifications:settings` |
 | `GET` | [`/backups/download`](#get-backupsdownload) | `backups:create` |
 | `GET` | [`/backups/files`](#get-backupsfiles) | `backups:restore` |
 | `POST` | [`/backups/restore/upload`](#post-backupsrestoreupload) | `backups:restore` |
@@ -962,8 +980,8 @@ Usa el diseño del "Registro genealógico y certificado de origen" de la cabaña
 
 | Sección | Datos |
 | --- | --- |
-| I. Identificación del ejemplar | Nombre, registro ABSID (y código del certificado ABSID), raza, sexo, fecha de nacimiento y edad, color, categoría, arete, grado de pureza (según la categoría: G1 50 %, G2 75 %, G3 87,5 %, G4 93,75 %, PO 100 %), peso al nacer, peso actual (último pesaje), estado, fecha de registro (fecha de ingreso, o de nacimiento si nació en la cabaña) y código de la cabaña. |
-| II. Genealogía | Padre y madre: arete, nombre, ABSID, raza y sus propios padres (abuelos del animal). |
+| I. Identificación del ejemplar | Nombre, registro ABSID, código del certificado ABSID, raza, sexo, fecha de nacimiento, color, categoría, arete, grado de pureza (según la categoría: G1 50 %, G2 75 %, G3 87,5 %, G4 93,75 %, PO 100 %), peso al nacer, peso actual (último pesaje, sin la fecha), fecha de registro (fecha de ingreso, o de nacimiento si nació en la cabaña) y código de la cabaña. |
+| II. Genealogía | Árbol de tres generaciones (animal, padres y abuelos; la madre arriba y el padre abajo) unido con líneas. Cada casilla: arete y nombre, categoría abreviada, ABSID (en un reproductor externo, su registro externo) y si es externo. Los que faltan salen como "Madre desconocida" / "Padre desconocido". |
 | III. Criador y propietario | Criadores responsables, localidad, quién lo emitió, teléfono, fecha y hora de emisión y número de certificado. |
 | Firmas | Un bloque por criador responsable (hasta 3). |
 
@@ -971,9 +989,9 @@ Usa el diseño del "Registro genealógico y certificado de origen" de la cabaña
 
 | Sección | Datos |
 | --- | --- |
-| Origen y estado | Foto principal (si tiene), origen de ingreso, fecha, cabaña de procedencia, estado (si ya salió, fecha y motivo), registro externo y cantidad de crías. Si es [caso especial](#arete-y-registro-absid-caso-especial), un aviso con el motivo. |
-| Pesos | Al nacer, al destete y el último, más los 15 pesajes más recientes. |
-| Registro sanitario y de manejo | Aviso si hay un período de retiro de carne o leche vigente, más los 15 eventos más recientes (fecha, tipo, producto, dosis y vía, motivo). |
+| Origen y estado | Foto principal (si tiene), fecha de ingreso, cabaña de procedencia, estado con fecha y motivo (solo si ya salió), registro externo y cantidad de crías. Si es [caso especial](#arete-y-registro-absid-caso-especial), un aviso con el motivo. |
+| Pesos | Al nacer, al destete, último pesaje y su fecha, más los 15 pesajes más recientes ordenados por fecha ascendente. |
+| Registro sanitario y de manejo | Los 15 eventos más recientes ordenados por fecha ascendente (fecha, tipo, producto, dosis y vía, motivo). |
 | Observaciones | Las notas del animal. |
 | Pie | Quién lo emitió (nombre y usuario), fecha y hora, número de certificado y paginación. |
 
@@ -1563,6 +1581,58 @@ Estos avisos (`warnings`) no bloquean el parto:
 
 Una monta `DAM_DIED` cuenta como concepción si la preñez estaba confirmada (`confirmedPregnancy`). Si la madre murió antes de saber si estaba preñada, la monta no cuenta en `withResult`, así que no baja la fertilidad.
 
+### `GET /animals/:animalId/pedigree`
+
+**Permiso:** `animals:read`. Árbol genealógico del animal en **una sola consulta**. `?generations=` va de 1 a 6; por defecto, 4:
+
+| `generations` | Llega hasta | Ancestros posibles |
+| --- | --- | --- |
+| 1 | Padres | 2 |
+| 2 | Abuelos | 6 |
+| 3 | Bisabuelos | 14 |
+| 4 | Tatarabuelos | 30 |
+| 6 | 6 generaciones | 126 |
+
+Incluye los ancestros externos. Un ancestro que aparece por dos ramas (consanguinidad) se repite en cada una.
+
+```jsonc
+{
+  "generations": 4,
+  "tree": {
+    "id": "...", "earTag": "303", "name": "ANDROMEDA", "sex": "FEMALE",
+    "birthDate": "2024-08-31", "isExternal": false, "status": "ALIVE",
+    "geneticCategory": "PO", "absidRegistry": "1234", "breedName": "Santa Inés",
+    "generation": 0,                    // 0 = el animal, 1 = padres, 2 = abuelos...
+    "dam": {                            // null = madre desconocida
+      "id": "...", "earTag": null, "name": "Artemisa Perales", "isExternal": true, "generation": 1,
+      "dam": { "...": "...", "generation": 2, "dam": null, "sire": null },
+      "sire": { "...": "..." }
+    },
+    "sire": { "...": "..." }
+    // En la última generación pedida no vienen "dam" ni "sire":
+    // viene "hasMoreAncestors": true si ese animal tiene padres registrados.
+  },
+  // Ancestros conocidos por generación, sobre los posibles.
+  "completeness": [
+    { "generation": 1, "known": 2, "possible": 2 },
+    { "generation": 2, "known": 4, "possible": 4 },
+    { "generation": 3, "known": 2, "possible": 8 },
+    { "generation": 4, "known": 0, "possible": 16 }
+  ],
+  // Ancestros que aparecen más de una vez (señal de consanguinidad).
+  "repeatedAncestors": [{ "id": "...", "earTag": "SA-611", "name": "VESUVIO", "occurrences": 2 }],
+  // Consanguinidad del animal (Wright): parentesco entre su madre y su padre,
+  // dentro de las generaciones pedidas. null si falta la madre o el padre, o con generations=1.
+  "inbreeding": {
+    "coefficient": 0.25,                 // 25 %
+    "relationship": "padre/madre e hijo/a",
+    "commonAncestors": [{ "id": "...", "earTag": "SA-611", "name": "VESUVIO", "description": "..." }]
+  }
+}
+```
+
+`404` si el animal no existe. Los animales eliminados no aparecen en el árbol.
+
 ### `GET /animals/:animalId/reproduction`
 
 **Permiso:** `reproduction:read`. Historial reproductivo del animal: sus montas como madre o padre, sus partos como madre o padre, y el parto en el que nació.
@@ -1689,6 +1759,184 @@ Corregir el dato no cierra el aviso solo: después de corregirlo, márquelo como
 **Permiso:** `reviews:resolve`. Lo vuelve a dejar pendiente y borra la resolución. `400` si ya estaba pendiente.
 
 ---
+
+## Notificaciones y controles
+
+El sistema avisa en la **campana** de la web y, si el usuario lo acepta, con **notificaciones push** del navegador (aparecen aunque la página esté cerrada). Todo corre en el servidor propio: no usa servicios pagos.
+
+**Qué avisa y a quién** (usuarios activos con el permiso):
+
+| Aviso (`type`) | Cuándo | Destinatarios |
+| --- | --- | --- |
+| `BIRTH_UPCOMING` | Parto probable a **10, 5, 2 y 1 días**, y el **día** del parto. Un aviso por monta en cada etapa (montas sin diagnóstico o preñadas, de hembras vivas). | `reproduction:read` |
+| `WEANING_DUE` | Resumen de **destetes**: a los N meses de nacer (3 por defecto), si no tiene pesaje de destete. | `weighings:write` |
+| `WEIGHING_DUE` | Resumen de **controles de peso**: cada N meses desde el último pesaje (3 por defecto). | `weighings:write` |
+| `HEALTH_DUE` | Resumen de **controles sanitarios**: cada N meses desde el último registro sanitario (3 por defecto). | `health:write` |
+
+- **Revisión diaria:** a la hora configurada (`runHour`, 06:00 por defecto, hora de la cabaña). Si el servidor estuvo apagado a esa hora, corre apenas vuelve. Un mismo aviso **nunca se repite** al mismo usuario.
+- **Partos:** si un día la revisión no corrió, al siguiente se envía la etapa pendiente (por ejemplo, con 4 días se envía la de 5). Si se corrige la fecha de la monta, se vuelve a avisar con la fecha nueva.
+- **Resúmenes de controles:** uno por tipo, el día en que hay novedades: un control entra en "próximos" (faltan `upcomingDays` días), vence hoy o se atrasó (venció ayer). Además, **los lunes** se recuerda lo atrasado aunque no haya novedades.
+- Las notificaciones leídas se borran a los 90 días, y todas a los 180.
+
+### Controles y justificaciones
+
+Cada animal vivo de la cabaña tiene un vencimiento por control:
+
+| Control (`type`) | Vence | Se cumple al registrar |
+| --- | --- | --- |
+| `WEANING` | Nacimiento + `weaningAgeMonths`. Solo los nacidos desde `weaningTrackingFrom`. | Un pesaje de tipo `WEANING` |
+| `WEIGHING` | Último pesaje (o nacimiento, o ingreso) + `weighingIntervalMonths` | Cualquier pesaje |
+| `HEALTH` | Último registro sanitario (o nacimiento, o ingreso) + `healthIntervalMonths` | Vacuna, desparasitación, vitaminas, tratamiento o diagnóstico |
+
+Si un control no se hizo, se **justifica** con un motivo:
+
+- **Peso y sanidad:** se reprograma a una nueva fecha (`nextDueDate`, obligatoria).
+- **Destete:** se puede reprogramar, o **cerrar** sin fecha (por ejemplo, "Destetado antes de usar el sistema"). Cerrado, deja de aparecer.
+- La justificación vale para el vencimiento de ese momento. Cuando se registra el control, el siguiente vencimiento se calcula normalmente.
+
+### `GET /notifications`
+
+**Permiso:** solo sesión. Notificaciones del usuario, las más nuevas primero. Paginado; `?unreadOnly=true` trae solo las no leídas.
+
+```jsonc
+{
+  "items": [
+    {
+      "id": "...",
+      "type": "BIRTH_UPCOMING",
+      "title": "Parto probable en 5 días",
+      "body": "0 — NALA · Preñada (2 fetos) · Macho: 135 — TORO · Fecha probable: 29/11/2026",
+      // A qué pantalla lleva. BREEDING_SERVICE: id = monta. CONTROLS: filter = WEANING | WEIGHING | HEALTH.
+      "target": { "type": "BREEDING_SERVICE", "id": "...", "filter": null },
+      "createdAt": "2026-11-24T10:05:00.000Z",
+      "readAt": null
+    }
+  ],
+  "total": 12, "page": 1, "limit": 20
+}
+```
+
+### `GET /notifications/unread-count`
+
+**Permiso:** solo sesión. `{ "count": 3 }`, para el número de la campana.
+
+### `PATCH /notifications/:id/read` · `POST /notifications/read-all`
+
+**Permiso:** solo sesión. Marca una (`204`; `404` si no es del usuario) o todas (`{ "updated": 5 }`) como leídas.
+
+### Notificaciones push
+
+**Permiso:** solo sesión.
+
+- `GET /notifications/push/public-key` → `{ "publicKey": "BP4z9..." }`. Clave VAPID para `pushManager.subscribe({ applicationServerKey })`. Se genera sola la primera vez y no cambia.
+- `POST /notifications/push/subscriptions` con lo que devuelve `subscription.toJSON()`: `{ "endpoint": "https://fcm.googleapis.com/...", "keys": { "p256dh": "...", "auth": "..." } }` → `204`. Solo se aceptan servicios de push conocidos por `https` (Chrome, Edge, Firefox, Safari); si no, `400`. Si el navegador ya estaba suscrito con otro usuario, pasa al usuario actual.
+- `DELETE /notifications/push/subscriptions` con `{ "endpoint": "..." }` → `204`. Úselo al desactivar las notificaciones y **al cerrar sesión**.
+- `POST /notifications/push/test` → `{ "sent": 1, "failed": 0 }`. Envía un push de prueba a los navegadores del usuario (no queda en la campana). `400` si no tiene ninguno suscrito.
+
+El mensaje push llega cifrado al navegador y el service worker lo recibe como JSON: `{ id, type, title, body, target }`, con el mismo `target` de `GET /notifications`. Si el navegador anula la suscripción, el servidor la borra solo.
+
+### `GET /controls`
+
+**Permiso:** `weighings:write` para `WEANING` y `WEIGHING`; `health:write` para `HEALTH` (si no, `403`). Animales con su vencimiento vigente, del más atrasado al más lejano. Paginado.
+
+| Parámetro | Valores |
+| --- | --- |
+| `type` | `WEANING`, `WEIGHING` o `HEALTH` (obligatorio) |
+| `state` | `PENDING` (por defecto: atrasados + hoy + próximos), `OVERDUE`, `TODAY`, `UPCOMING`, `LATER` (más adelante) |
+| `search` | Arete o nombre |
+
+```jsonc
+{
+  "today": "2026-11-24",       // fecha de la cabaña
+  "items": [
+    {
+      "animalId": "...", "earTag": "CSR-508", "name": "LUNA", "species": "SHEEP", "sex": "FEMALE",
+      "birthDate": "2026-05-27",
+      "lastDate": null,              // último pesaje o registro sanitario (null en el destete)
+      "baseDueDate": "2026-08-27",   // vencimiento calculado
+      "dueDate": "2026-08-27",       // vencimiento vigente (el reprogramado si hay justificación)
+      "state": "OVERDUE",            // OVERDUE | TODAY | UPCOMING | LATER
+      "daysOverdue": 89,
+      "justification": null          // { reason, nextDueDate, createdAt, createdBy } si se reprogramó
+    }
+  ],
+  "total": 30, "page": 1, "limit": 20
+}
+```
+
+### `GET /controls/summary`
+
+**Permiso:** solo sesión. Conteos de los controles que el usuario puede ver (los demás no vienen):
+
+```jsonc
+{
+  "today": "2026-11-24",
+  "controls": {
+    "WEANING":  { "overdue": 26, "today": 2, "upcoming": 2, "enteringUpcoming": 2, "newlyOverdue": 0 },
+    "HEALTH":   { "overdue": 21, "today": 2, "upcoming": 2, "enteringUpcoming": 2, "newlyOverdue": 0 },
+    "WEIGHING": { "overdue": 0, "today": 0, "upcoming": 0, "enteringUpcoming": 0, "newlyOverdue": 0 }
+  }
+}
+```
+
+### `POST /controls/justifications`
+
+**Permiso:** el del control (ver `GET /controls`). Justifica uno o varios animales a la vez (hasta 500).
+
+| Campo | Tipo | Notas |
+| --- | --- | --- |
+| `type` | `WEANING` / `WEIGHING` / `HEALTH` | |
+| `animalIds` | uuid[] | 1 a 500, sin repetir |
+| `reason` | string 5–500 | Por qué no se hizo |
+| `nextDueDate` | `YYYY-MM-DD` | Nueva fecha: posterior a hoy y al vencimiento original, a menos de un año. **Obligatoria** en `WEIGHING` y `HEALTH`. En `WEANING`, sin fecha **se cierra** el destete. |
+
+Responde `201` con `{ "justified": 3, "items": [...] }` (`items`: los controles reprogramados, con su nuevo `dueDate`). Si algún animal no tiene ese control pendiente (no existe, no está vivo, ya se registró o el destete ya está cerrado), responde `400` con `animalIds` (los que fallaron) y no guarda nada.
+
+### `GET /controls/justifications`
+
+**Permiso:** el de cada control. Historial (hasta 200, las más nuevas primero), filtrable por `animalId` y `type`. Solo trae los tipos que el usuario puede ver.
+
+```jsonc
+[
+  {
+    "id": "...", "animalId": "...", "type": "WEIGHING",
+    "resolvedDueDate": "2026-12-10",  // vencimiento que se justificó
+    "nextDueDate": "2026-12-20",      // null = destete cerrado
+    "reason": "Balanza en reparación",
+    "createdAt": "...", "createdBy": "...", "createdByName": "Administrador del Sistema"
+  }
+]
+```
+
+### `GET` / `PATCH /notification-settings`
+
+**Permiso:** `notifications:settings`. Configuración de los controles y de la revisión diaria. El `PATCH` recibe solo lo que cambia:
+
+| Campo | Rango | Por defecto | Qué es |
+| --- | --- | --- | --- |
+| `weighingIntervalMonths` | 1–24 | 3 | Meses entre controles de peso |
+| `healthIntervalMonths` | 1–24 | 3 | Meses entre controles sanitarios |
+| `weaningAgeMonths` | 1–12 | 3 | Edad de destete |
+| `weaningTrackingFrom` | fecha, no futura | 6 meses antes de instalar el módulo | Se sigue el destete de los nacidos desde esta fecha |
+| `upcomingDays` | 1–30 | 7 | Días antes del vencimiento en que un control pasa a "próximo" |
+| `runHour` | 0–23 | 6 | Hora de la revisión diaria (hora de la cabaña) |
+
+La respuesta incluye además `lastRunOn` (última revisión), `updatedAt` y `updatedBy`. Los cambios se aplican de inmediato en `GET /controls` y en la próxima revisión.
+
+### `POST /notification-settings/run`
+
+**Permiso:** `notifications:settings`. Ejecuta la revisión diaria ahora (por ejemplo, después de cambiar la configuración). No repite los avisos ya enviados hoy.
+
+```jsonc
+{
+  "date": "2026-11-24", "births": 1, "created": 4, "purged": 0,
+  "controls": {
+    "WEANING": { "overdue": 26, "today": 2, "upcoming": 2, "enteringUpcoming": 2, "newlyOverdue": 0, "notified": true },
+    "WEIGHING": { "...": 0, "notified": false },
+    "HEALTH": { "...": 0, "notified": true }
+  }
+}
+```
 
 ## Copias de seguridad
 
