@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
+import { ExportExcelButton } from '@/features/exports'
 import { AnimalPicker, SPECIES_LABELS, type ParentRef, type Species } from '@/features/animals'
 import { useAuth } from '@/features/auth'
 import { getErrorMessage } from '@/shared/api/api-error'
@@ -72,6 +73,7 @@ export function BreedingServicesPage() {
         description="Montas dirigidas e inseminaciones, sus diagnósticos de preñez y su resultado."
         actions={
           <>
+            <ExportExcelButton />
             {can(PERMISSIONS.REPRODUCTION_WRITE, PERMISSIONS.ANIMALS_CREATE) && (
               <Button variant="secondary" icon="plus" onClick={() => navigate(REPRODUCTION_ROUTES.newBirth)}>
                 Parto sin monta

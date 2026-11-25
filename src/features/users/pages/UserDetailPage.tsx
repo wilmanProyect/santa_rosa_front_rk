@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
-import { LoginHistoryTable } from '@/features/audit'
+import { ActivityTable, LoginHistoryTable } from '@/features/audit'
 import { useAuth } from '@/features/auth'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { PERMISSIONS } from '@/shared/config/permissions'
@@ -28,7 +28,7 @@ import { useDeleteUser, useUser } from '../hooks/useUsers'
 import { USERS_ROUTES } from '../routes'
 import { INACTIVE_REASON_LABELS, type UserDetail } from '../types/user.types'
 
-type Tab = 'info' | 'roles' | 'permisos' | 'accesos'
+type Tab = 'info' | 'roles' | 'permisos' | 'accesos' | 'actividad'
 type OpenDialog = 'edit' | 'status' | 'password' | 'delete' | null
 
 export function UserDetailPage() {
@@ -70,7 +70,8 @@ function UserDetailView({ user }: { user: UserDetail }) {
     { id: 'info', label: 'Información', icon: 'users', visible: true },
     { id: 'roles', label: 'Roles', icon: 'shield', visible: canSeeRoles },
     { id: 'permisos', label: 'Permisos', icon: 'key', visible: canSeeRoles },
-    { id: 'accesos', label: 'Accesos', icon: 'activity', visible: can(PERMISSIONS.AUDIT_READ) },
+    { id: 'accesos', label: 'Accesos', icon: 'key', visible: can(PERMISSIONS.AUDIT_READ) },
+    { id: 'actividad', label: 'Actividad', icon: 'activity', visible: can(PERMISSIONS.AUDIT_READ) },
   ]
   const visibleTabs = tabs.filter((t) => t.visible)
   const tab: Tab = tabs.find((t) => t.id === requestedTab && t.visible)?.id ?? 'info'
@@ -144,6 +145,7 @@ function UserDetailView({ user }: { user: UserDetail }) {
       {tab === 'roles' && <UserRolesPanel key={user.updatedAt} user={user} />}
       {tab === 'permisos' && <UserPermissionsPanel key={user.updatedAt} user={user} />}
       {tab === 'accesos' && <LoginHistoryTable userId={user.id} />}
+      {tab === 'actividad' && <ActivityTable userId={user.id} />}
 
       <UserFormDialog open={dialog === 'edit'} user={user} onClose={() => setDialog(null)} />
       <ChangeStatusDialog open={dialog === 'status'} user={user} onClose={() => setDialog(null)} />

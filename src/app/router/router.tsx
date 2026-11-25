@@ -7,7 +7,7 @@ import {
   WeighingBatchPage,
 } from '@/features/animals'
 import { AreasPage, AREAS_ROUTES } from '@/features/areas'
-import { AUDIT_ROUTES, LoginHistoryPage } from '@/features/audit'
+import { AUDIT_ROUTES, AuditPage } from '@/features/audit'
 import { BackupsPage, BACKUPS_ROUTES } from '@/features/backups'
 import {
   HealthBatchPage,
@@ -125,7 +125,7 @@ export const router = createBrowserRouter([
           },
           {
             element: <RequirePermission permissions={[PERMISSIONS.AUDIT_READ]} />,
-            children: [{ path: AUDIT_ROUTES.loginHistory, element: <LoginHistoryPage /> }],
+            children: [{ path: AUDIT_ROUTES.loginHistory, element: <AuditPage /> }],
           },
           {
             element: <RequirePermission permissions={[PERMISSIONS.BACKUPS_CREATE]} />,

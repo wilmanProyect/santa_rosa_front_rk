@@ -29,6 +29,8 @@ export const PERMISSIONS = {
   ANIMALS_DELETE: 'animals:delete',
   ANIMALS_ISSUE_CERTIFICATE: 'animals:issue-certificate',
   ANIMALS_CONFIRM_GENETIC_CATEGORY: 'animals:confirm-genetic-category',
+  ANIMALS_READ_PRICE: 'animals:read-price',
+  ANIMALS_SET_PRICE: 'animals:set-price',
   ANIMAL_CATALOGS_MANAGE: 'animal-catalogs:manage',
   ANIMAL_PHOTOS_UPLOAD: 'animal-photos:upload',
   ANIMAL_PHOTOS_DELETE: 'animal-photos:delete',
@@ -50,6 +52,7 @@ export const PERMISSIONS = {
 
   AUDIT_READ: 'audit:read',
   BACKUPS_CREATE: 'backups:create',
+  EXPORTS_DOWNLOAD: 'exports:download',
   BACKUPS_RESTORE: 'backups:restore',
 
   NOTIFICATIONS_SETTINGS: 'notifications:settings',

@@ -4,7 +4,7 @@ import { useAuth } from '@/features/auth'
 import { ReviewBanner } from '@/features/reviews'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { PERMISSIONS } from '@/shared/config/permissions'
-import { formatAge, formatDate, formatDateTime, formatKg } from '@/shared/lib/format'
+import { formatAge, formatBs, formatDate, formatDateTime, formatKg } from '@/shared/lib/format'
 import {
   Alert,
   BackLink as SharedBackLink,
@@ -318,6 +318,22 @@ function AnimalData({ animal }: { animal: AnimalDetail }) {
       )}
 
       <CertificateCard animal={animal} />
+
+      {/* La API solo incluye el precio a quien tiene permiso para verlo. */}
+      {!animal.isExternal && 'price' in animal && (
+        <Card title="Precio">
+          <DataItem
+            label="Valorización"
+            value={
+              animal.price === null || animal.price === undefined ? (
+                <span className="muted">Sin precio</span>
+              ) : (
+                formatBs(animal.price)
+              )
+            }
+          />
+        </Card>
+      )}
 
       {animal.notes && (
         <section className="card">

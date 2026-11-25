@@ -15,7 +15,7 @@ El contrato completo de cada endpoint (todos los campos, todos los códigos de e
 7. [Módulo: Usuarios](#7-módulo-usuarios)
 8. [Módulo: Roles y permisos](#8-módulo-roles-y-permisos)
 9. [Módulo: Áreas](#9-módulo-áreas)
-10. [Módulo: Auditoría de accesos](#10-módulo-auditoría-de-accesos)
+10. [Módulo: Auditoría de accesos y actividad](#10-módulo-auditoría-de-accesos-y-actividad)
 11. [Módulo: Catálogos de razas y colores](#11-módulo-catálogos-de-razas-y-colores)
 12. [Módulo: Animales](#12-módulo-animales)
 13. [Módulo: Fotos de animales](#13-módulo-fotos-de-animales)
@@ -311,7 +311,8 @@ export const can = (granted: string[], ...required: Permission[]) =>
 | Eliminar usuario | `users:delete` |
 | Menú **Roles** | `roles:read` · crear `roles:create` · editar `roles:update` · eliminar `roles:delete` |
 | Menú **Áreas** | `areas:read` · crear `areas:create` · editar `areas:update` · eliminar `areas:delete` |
-| Menú **Auditoría de accesos** | `audit:read` |
+| Menú **Auditoría** (accesos y actividad) y pestaña "Historial de cambios" de la ficha del animal | `audit:read` |
+| Botón **Exportar a Excel** | `exports:download` (cada sección, además, su permiso de lectura) |
 | Botón **Descargar copia de seguridad** | `backups:create` |
 | Sección **Restaurar una copia de seguridad** | `backups:create` (para ver la pantalla) + `backups:restore` |
 | Campana, lista de notificaciones y notificaciones push | Solo sesión |
@@ -327,6 +328,8 @@ export const can = (granted: string[], ...required: Permission[]) =>
 | Subir fotos, editarlas, elegir la principal | `animal-photos:upload` |
 | Eliminar fotos | `animal-photos:delete` |
 | Botón "Emitir certificado" (PDF del animal) | `animals:issue-certificate` |
+| Ver el precio del animal (listado y ficha) | `animals:read-price` o `animals:set-price` |
+| Campo "Precio" en el formulario del animal | `animals:set-price` (más `animals:create` o `animals:update`) |
 | Ver pesajes (pestaña de la ficha) | `animals:read` |
 | Registrar, corregir o eliminar pesajes; jornada de pesaje | `weighings:write` |
 | Ver el registro sanitario y el catálogo de productos | `health:read` |
@@ -521,6 +524,8 @@ export interface AnimalSummary {
   dam: ParentRef | null;
   sire: ParentRef | null;
   primaryPhoto: PrimaryPhoto | null;
+  /** Precio en Bs. Solo viene con animals:read-price o animals:set-price; null = sin precio. */
+  price?: number | null;
 }
 
 export interface AnimalDetail extends AnimalSummary, Audit {
@@ -1189,7 +1194,11 @@ CRUD simple, sin paginación.
 
 ---
 
-## 10. Módulo: Auditoría de accesos
+## 10. Módulo: Auditoría de accesos y actividad
+
+Pantalla **Auditoría** (`audit:read`) con dos pestañas: **Accesos** y **Actividad**.
+
+### 10.1 Accesos
 
 `GET /auth/login-history?userId=&success=&page=&limit=` (`audit:read`) → `Paginated<LoginAttempt>`, del más reciente al más antiguo.
 
@@ -1197,6 +1206,75 @@ CRUD simple, sin paginación.
 - **Columnas:** fecha y hora, usuario escrito, resultado, motivo de fallo (`LOGIN_FAILURE_LABEL`), IP, navegador (`userAgent`).
 - `userId` es `null` cuando alguien escribió un usuario que no existe.
 - También sirve en la ficha del usuario, como pestaña "Accesos" con `?userId=<id>`.
+
+### 10.2 Actividad
+
+`GET /audit/activity` (`audit:read`) → `AuditPage`: quién ingresó, modificó o borró qué dato, y cuándo. Contrato completo en [API.md](API.md#registro-de-actividad).
+
+```ts
+type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'EVENT';
+type AuditEventType = 'CERTIFICATE_ISSUED' | 'BACKUP_DOWNLOADED' | 'BACKUP_RESTORED' | 'ANIMALS_IMPORTED' | 'DATA_EXPORTED';
+
+interface AuditEntry {
+  id: string;
+  occurredAt: string;
+  actorId: string | null;
+  actorUsername: string | null;
+  actorFullName: string | null;
+  requestId: string | null;
+  ip: string | null;
+  source: 'API' | 'SYSTEM';
+  action: AuditAction;
+  entity: string;
+  entityLabel: string;
+  recordId: string | null;
+  animalIds: string[];
+  /** CREATE/DELETE: { campo: valor } · UPDATE: { campo: [anterior, nuevo] } · EVENT: detalles */
+  changes: Record<string, unknown> | null;
+  event: AuditEventType | null;
+  eventLabel: string | null;
+  summary: string | null;
+}
+
+interface AuditRef {
+  type: 'animal' | 'breed' | 'color' | 'area' | 'product' | 'role' | 'permission' | 'user';
+  label: string;
+}
+
+interface AuditPage extends Paginated<AuditEntry> {
+  /** Nombre de cada id que aparece en la página. */
+  refs: Record<string, AuditRef>;
+}
+
+const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
+  CREATE: 'Creó',
+  UPDATE: 'Modificó',
+  DELETE: 'Eliminó',
+  RESTORE: 'Recuperó',
+  EVENT: 'Acción',
+};
+```
+
+- **Filtros:** usuario (select de `GET /users`), tabla (select de `GET /audit/entities`), acción, rango de fechas (`from`/`to` en `YYYY-MM-DD`, ambas incluidas). Por defecto, los últimos 7 días.
+- **Filas:** fecha y hora · usuario (`actorFullName`, o "Sistema" si `source` es `SYSTEM`) · acción · `entityLabel` · registro (el nombre de `refs[recordId]` si existe) · resumen. En los eventos, `eventLabel` y `summary`.
+- **Detalle** al expandir la fila:
+  - `UPDATE`: tabla de tres columnas, **Campo · Antes · Después**, una fila por cada campo de `changes`.
+  - `CREATE`: los datos ingresados, **Campo · Valor**.
+  - `DELETE`: los datos del registro borrado. En un borrado lógico `changes` es `{}`: muestre solo "Eliminó".
+  - `EVENT`: `summary` y, si interesa, los detalles.
+  - Botón **"Ver la operación completa"** con `?requestId=<requestId>`: todo lo que se guardó en la misma petición (por ejemplo, un parto, sus crías y el cambio de estado de la monta).
+- **Valores:**
+  - Si el valor es un id que está en `refs`, muestre `refs[id].label` ("Dorper", "148 COQUETA").
+  - `null` → "—"; `true`/`false` → "Sí"/"No"; fechas `YYYY-MM-DD` como fecha local; los valores de enums con las etiquetas de la [sección 5](#5-etiquetas-de-los-valores-fijos).
+  - `"[oculto]"` se muestra tal cual: es la contraseña, o el precio del animal para quien no tiene permiso de verlo. Solo se sabe que cambió.
+- **Nombres de campo:** vienen como en la base (`snake_case`: `weight_kg`, `breed_id`). Arme un mapa de etiquetas con los campos de los formularios y, para los que falten, muestre el nombre con `_` reemplazado por espacios.
+- También sirve en la ficha del usuario, como pestaña "Actividad" con `?userId=<id>`.
+
+### 10.3 Historial de cambios del animal
+
+Pestaña de la ficha (solo con `audit:read`): `GET /animals/:id/activity?page=&limit=&action=&from=&to=` → `AuditPage`. Trae los cambios de la ficha, fotos, pesajes, sanidad, categoría genética, controles, montas, diagnósticos, partos y crías relacionados con el animal, y los certificados emitidos.
+
+Muéstrela como línea de tiempo, con el mismo detalle de [10.2](#102-actividad). Agrupe por `requestId` para que, por ejemplo, el registro de un parto se vea como un solo evento.
 
 ---
 
@@ -1334,6 +1412,16 @@ Solo para animales de la cabaña. En los externos no se envía nada de esta secc
 En externos, `sourceFarm` sirve para la cabaña o el centro de semen de origen.
 
 **Otros:** `notes` (observaciones, máx. 1000).
+
+#### Precio (dato reservado)
+
+| Campo | Regla |
+| --- | --- |
+| `price` | Bs, `>= 0`, hasta 2 decimales. `null` lo quita. Solo animales de la cabaña (no externos). |
+
+- **Muestre el campo solo si el usuario tiene `animals:set-price`.** Si no lo tiene, **no envíe `price`** (ni siquiera `null`): la API responde `403` y no guarda el resto del cambio.
+- En la ficha y el listado, muestre el precio solo si `'price' in animal` (la API lo omite a quien no tiene permiso). Formato: `Bs 2.500,00`. `null` → "Sin precio".
+- Columna "Precio" opcional en el listado, visible solo con `animals:read-price` o `animals:set-price`.
 
 #### Edición (PATCH)
 
@@ -1477,6 +1565,7 @@ Estructura sugerida de la ficha (`GET /animals/:id`):
 - **Datos por revisar:** aviso arriba de la ficha si el animal tiene avisos pendientes ([sección 18](#18-módulo-datos-por-revisar)).
 - **Botón "Emitir certificado":** PDF con toda la ficha ([12.6.1](#1261-certificado-del-animal-pdf-generado)).
 - **Auditoría:** creado y modificado (fecha y usuario).
+- **Historial de cambios** (solo con `audit:read`): pestaña con `GET /animals/:id/activity` ([10.3](#103-historial-de-cambios-del-animal)).
 
 ### 12.7.1 Árbol genealógico
 
@@ -1539,6 +1628,16 @@ export const GENERATION_LABEL = ['Animal', 'Padres', 'Abuelos', 'Bisabuelos', 'T
 ### 12.8 Eliminar
 
 `DELETE /animals/:id` (`animals:delete`) → `204`. **Solo para registros cargados por error**: en el diálogo de confirmación explique que para una muerte o venta se usa "Registrar salida". `409` si tiene crías registradas o figura como madre o padre en montas o partos.
+
+### 12.9 Exportar a Excel
+
+`GET /exports/excel?sections=&species=&from=&to=&status=&includeExternal=` (`exports:download`) → archivo `.xlsx`. Contrato completo en [API.md](API.md#exportación-a-excel).
+
+- Botón **"Exportar a Excel"** en el listado de animales (y, si quiere, en Sanidad y Reproducción), visible solo con `exports:download`.
+- Diálogo con casillas por sección: **Animales** (`animals:read`), **Registro sanitario** (`health:read`), **Montas y diagnósticos** y **Partos y crías** (`reproduction:read`). Muestre solo las que el usuario puede ver y márquelas todas por defecto. Envíe las marcadas en `sections` separadas por coma (`animals,health`).
+- Filtros opcionales: especie, rango de fechas (sanidad, montas y partos) y, para los animales, estado ("Solo inventario actual" = `status=ALIVE`) e "Incluir reproductores externos".
+- La descarga necesita el token, así que no sirve un `<a href>`: pida el archivo con `fetch`, conviértalo en `Blob` y descárguelo con `URL.createObjectURL`. El nombre viene en `Content-Disposition`.
+- La columna de precio solo sale si el usuario tiene permiso de verlo: no hace falta hacer nada en el frontend.
 
 ---
 
@@ -2252,7 +2351,7 @@ En `/configuracion`, una sección **"Controles y avisos"**, visible con `notific
 4. **Áreas** (CRUD simple: sirve para fijar los patrones de listado, formulario y confirmación).
 5. **Roles** con la pantalla de permisos agrupados.
 6. **Usuarios:** listado, alta, edición, baja, roles, permisos individuales, restablecer contraseña.
-7. **Auditoría de accesos.**
+7. **Auditoría:** accesos y registro de actividad (la pestaña del animal, cuando exista la ficha).
 8. **Catálogos** de razas y colores.
 9. **Animales:** listado, formulario con secciones condicionales, caso especial, ficha, salida, crías.
 10. **Certificado ABSID.**
@@ -2287,3 +2386,4 @@ En `/configuracion`, una sección **"Controles y avisos"**, visible con `notific
 - [ ] El permiso de notificaciones se pide solo al tocar el botón, y al cerrar sesión se borra la suscripción **antes** del token.
 - [ ] `sw.js` se sirve desde la raíz y sin caché.
 - [ ] Justificar peso o sanidad exige nueva fecha; en el destete se puede cerrar sin fecha.
+- [ ] El registro de actividad muestra los ids con `refs` y los valores `"[oculto]"` tal cual, sin intentar mostrar la contraseña.

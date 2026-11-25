@@ -116,6 +116,11 @@ export interface AnimalSummary {
   dam: ParentRef | null
   sire: ParentRef | null
   primaryPhoto: PrimaryPhoto | null
+  /**
+   * Precio (valorización) en Bs. Solo viene con animals:read-price o animals:set-price:
+   * sin permiso el campo no aparece. `null` = sin precio.
+   */
+  price?: number | null
 }
 
 export interface CertificateFile {
@@ -188,6 +193,8 @@ export interface CreateAnimalRequest {
   entryDate?: string
   sourceFarm?: string
   notes?: string
+  /** Solo con animals:set-price; sin el permiso enviarlo devuelve 403. */
+  price?: number
 }
 
 /** Cuerpo de PATCH /animals/:id: solo lo modificado; `null` vacía los anulables. */
@@ -211,6 +218,8 @@ export interface UpdateAnimalRequest {
   entryDate?: string | null
   sourceFarm?: string | null
   notes?: string | null
+  /** Solo con animals:set-price; `null` lo quita. */
+  price?: number | null
 }
 
 export interface ChangeAnimalStatusRequest {

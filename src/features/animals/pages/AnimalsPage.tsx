@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { Can } from '@/features/auth'
+import { Can, useAuth } from '@/features/auth'
+import { ExportExcelButton } from '@/features/exports'
 import { ReviewFlag } from '@/features/reviews'
 import { getErrorMessage } from '@/shared/api/api-error'
 import { PERMISSIONS } from '@/shared/config/permissions'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
-import { formatAge } from '@/shared/lib/format'
+import { formatAge, formatBs } from '@/shared/lib/format'
 import { Alert, Button, Icon, PageHeader, Pagination, SelectField, Spinner, Tabs } from '@/shared/ui'
 import { AnimalFlags, AnimalStatusBadge } from '../components/AnimalBadges'
 import { AnimalThumb } from '../components/AnimalThumb'
@@ -35,6 +36,9 @@ export function AnimalsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const view: View = searchParams.get('vista') === 'externos' ? 'externos' : 'cabana'
   const isExternal = view === 'externos'
+  const { can } = useAuth()
+  // El precio es reservado: la API solo lo envía a quien tiene permiso para verlo.
+  const showPrice = !isExternal && (can(PERMISSIONS.ANIMALS_READ_PRICE) || can(PERMISSIONS.ANIMALS_SET_PRICE))
 
   const [search, setSearch] = useState('')
   // Por defecto, el inventario actual (vivos).
@@ -80,6 +84,7 @@ export function AnimalsPage() {
         description="Inventario de ovinos y caprinos de la cabaña, con su genealogía y fotos."
         actions={
           <>
+            <ExportExcelButton />
             <Can permissions={[PERMISSIONS.ANIMAL_CATALOGS_MANAGE]}>
               <Button variant="secondary" icon="palette" onClick={() => navigate(ANIMALS_ROUTES.catalogs)}>
                 Razas y colores
@@ -235,12 +240,13 @@ export function AnimalsPage() {
                   <th>Edad</th>
                   <th>Categoría</th>
                   {!isExternal && <th>Estado</th>}
+                  {showPrice && <th style={{ textAlign: "right" }}>Precio</th>}
                 </tr>
               </thead>
               <tbody>
                 {data.items.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="table__empty">
+                    <td colSpan={isExternal ? 5 : showPrice ? 7 : 6} className="table__empty">
                       <div className="empty">
                         <Icon name="animal" size={28} />
                         {isExternal
@@ -294,6 +300,15 @@ export function AnimalsPage() {
                     {!isExternal && (
                       <td>
                         <AnimalStatusBadge status={animal.status} />
+                      </td>
+                    )}
+                    {showPrice && (
+                      <td className="nowrap" style={{ textAlign: "right" }}>
+                        {animal.price === null || animal.price === undefined ? (
+                          <span className="muted">—</span>
+                        ) : (
+                          formatBs(animal.price)
+                        )}
                       </td>
                     )}
                   </tr>

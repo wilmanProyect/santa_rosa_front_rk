@@ -29,6 +29,8 @@ export interface AnimalFormValues {
   entryDate: string
   sourceFarm: string
   notes: string
+  /** Precio en Bs (dato reservado: solo se envía con animals:set-price). */
+  price: string
   identifierException: boolean
   identifierExceptionReason: string
 }
@@ -51,6 +53,7 @@ export const EMPTY_ANIMAL_FORM: AnimalFormValues = {
   entryDate: '',
   sourceFarm: '',
   notes: '',
+  price: '',
   identifierException: false,
   identifierExceptionReason: '',
 }
@@ -74,6 +77,7 @@ export function toFormValues(animal: AnimalDetail): AnimalFormValues {
     entryDate: animal.entryDate ?? '',
     sourceFarm: animal.sourceFarm ?? '',
     notes: animal.notes ?? '',
+    price: animal.price === null || animal.price === undefined ? '' : String(animal.price),
     identifierException: animal.identifierException,
     identifierExceptionReason: animal.identifierExceptionReason ?? '',
   }
@@ -88,6 +92,8 @@ export function effectiveValues(values: AnimalFormValues, isExternal: boolean): 
   if (isExternal || v.entryOrigin === 'BORN_ON_FARM') v.entryDate = ''
   if (!isExternal && v.entryOrigin === 'BORN_ON_FARM') v.sourceFarm = ''
   if (!v.identifierException) v.identifierExceptionReason = ''
+  // Los externos no tienen precio.
+  if (isExternal) v.price = ''
   return v
 }
 
@@ -115,10 +121,34 @@ export function validateAnimal(values: AnimalFormValues, isExternal: boolean): s
   if (values.identifierException && !values.identifierExceptionReason.trim()) {
     return 'Indique el motivo del caso especial.'
   }
+  if (!isExternal && values.price.trim()) {
+    const price = parsePrice(values.price)
+    if (price === null) return 'El precio debe ser un monto en Bs, mayor o igual a 0, con hasta 2 decimales.'
+    if (price > MAX_PRICE) return 'El precio es demasiado alto.'
+  }
   return null
 }
 
-export function buildCreateRequest(form: AnimalFormValues, isExternal: boolean): CreateAnimalRequest {
+const MAX_PRICE = 9_999_999_999.99
+
+/** "2500", "2500,50" o "2.500,50" → 2500.5. null si no es un monto válido. */
+export function parsePrice(text: string): number | null {
+  let t = text.trim().replace(/\s|bs\.?/gi, '')
+  // Con coma decimal, los puntos son separadores de miles.
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.')
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null
+  return Number(t)
+}
+
+/**
+ * `canSetPrice`: el usuario tiene animals:set-price. Sin ese permiso `price` no se envía
+ * (ni siquiera null): la API respondería 403 y no guardaría nada.
+ */
+export function buildCreateRequest(
+  form: AnimalFormValues,
+  isExternal: boolean,
+  canSetPrice: boolean,
+): CreateAnimalRequest {
   const v = effectiveValues(form, isExternal)
   return {
     isExternal: isExternal || undefined,
@@ -142,6 +172,7 @@ export function buildCreateRequest(form: AnimalFormValues, isExternal: boolean):
     entryDate: optional(v.entryDate),
     sourceFarm: optional(v.sourceFarm),
     notes: optional(v.notes),
+    price: canSetPrice && v.price.trim() ? (parsePrice(v.price) ?? undefined) : undefined,
   }
 }
 
@@ -150,6 +181,7 @@ export function buildUpdateRequest(
   initialForm: AnimalFormValues,
   form: AnimalFormValues,
   isExternal: boolean,
+  canSetPrice: boolean,
 ): UpdateAnimalRequest {
   const initial = effectiveValues(initialForm, isExternal)
   const v = effectiveValues(form, isExternal)
@@ -182,5 +214,8 @@ export function buildUpdateRequest(
   if (changed('identifierException')) body.identifierException = v.identifierException
   if (v.dam?.id !== initial.dam?.id) body.damId = v.dam?.id ?? null
   if (v.sire?.id !== initial.sire?.id) body.sireId = v.sire?.id ?? null
+  if (canSetPrice && !isExternal && parsePrice(v.price) !== parsePrice(initial.price)) {
+    body.price = v.price.trim() ? parsePrice(v.price) : null
+  }
   return body
 }

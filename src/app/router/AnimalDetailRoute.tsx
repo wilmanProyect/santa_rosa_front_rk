@@ -1,4 +1,5 @@
 import { AnimalDetailPage, type AnimalExtraTab } from '@/features/animals'
+import { AnimalActivityTimeline } from '@/features/audit'
 import { useAuth } from '@/features/auth'
 import { AnimalJustificationsCard } from '@/features/controls'
 import { AnimalHealthPanel } from '@/features/health'
@@ -22,6 +23,14 @@ const REPRODUCTION_TAB: AnimalExtraTab = {
   render: (animal) => <AnimalReproductionPanel animal={animal} />,
 }
 
+/** Pestaña "Historial de cambios": el registro de actividad del animal (feature `audit`). */
+const HISTORY_TAB: AnimalExtraTab = {
+  id: 'historial',
+  label: 'Historial de cambios',
+  icon: 'activity',
+  render: (animal) => <AnimalActivityTimeline animalId={animal.id} />,
+}
+
 /**
  * Ficha del animal con las pestañas de otros módulos. Se conectan aquí para que `animals`
  * no dependa de `health` ni de `reproduction` (que a su vez usan el buscador de animales).
@@ -31,6 +40,7 @@ export function AnimalDetailRoute() {
   const extraTabs = [
     ...(can(PERMISSIONS.HEALTH_READ) ? [HEALTH_TAB] : []),
     ...(can(PERMISSIONS.REPRODUCTION_READ) ? [REPRODUCTION_TAB] : []),
+    ...(can(PERMISSIONS.AUDIT_READ) ? [HISTORY_TAB] : []),
   ]
   return (
     <AnimalDetailPage

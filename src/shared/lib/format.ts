@@ -66,6 +66,13 @@ export function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
+/** Monto en bolivianos: "Bs 2.500,00" (con separador de miles también en miles bajos). */
+export function formatBs(value: number): string {
+  const [int, dec] = Math.abs(value).toFixed(2).split('.')
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return `${value < 0 ? '-' : ''}Bs ${grouped},${dec}`
+}
+
 /** Peso en kg con hasta 2 decimales. */
 export function formatKg(value: number | null | undefined): string {
   return value === null || value === undefined

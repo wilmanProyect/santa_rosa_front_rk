@@ -34,6 +34,8 @@ Salvo los marcados como **Público**, todos los endpoints exigen un access token
 - [Revisión de datos](#revisión-de-datos)
 - [Notificaciones y controles](#notificaciones-y-controles)
 - [Copias de seguridad](#copias-de-seguridad)
+- [Registro de actividad](#registro-de-actividad)
+- [Exportación a Excel](#exportación-a-excel)
 - [Sistema](#sistema)
 - [Modelos de respuesta](#modelos-de-respuesta)
 - [Valores fijos](#valores-fijos)
@@ -151,6 +153,8 @@ Los define el sistema en [`permission-catalog.ts`](../src/modules/roles-permissi
 | `animal-photos:delete` | Animales | Eliminar fotos del historial de los animales |
 | `animals:issue-certificate` | Animales | Emitir el certificado (PDF) con toda la información del animal |
 | `animals:confirm-genetic-category` | Animales | Confirmar la categoría genética de un animal según ABSID (la esperada al nacer u otra) |
+| `animals:read-price` | Animales | Ver el precio (valorización) de los animales, también en el historial de actividad |
+| `animals:set-price` | Animales | Asignar, corregir o quitar el precio de los animales (requiere también `animals:create` o `animals:update`) |
 | `weighings:write` | Control de peso | Registrar, corregir y eliminar pesajes (verlos solo requiere `animals:read`) |
 | `health:read` | Sanidad | Ver el registro sanitario, los eventos generales y el catálogo de productos veterinarios |
 | `health:write` | Sanidad | Registrar, corregir y eliminar eventos sanitarios y de manejo |
@@ -162,9 +166,10 @@ Los define el sistema en [`permission-catalog.ts`](../src/modules/roles-permissi
 | `reviews:read` | Revisión de datos | Ver los avisos de datos por revisar en animales, montas y partos |
 | `reviews:create` | Revisión de datos | Crear avisos de revisión |
 | `reviews:resolve` | Revisión de datos | Marcar un aviso como corregido (o reabrirlo), indicando qué se hizo |
-| `audit:read` | Auditoría | Ver el historial de inicios de sesión |
+| `audit:read` | Auditoría | Ver el historial de inicios de sesión y el registro de actividad (datos ingresados, modificados y borrados) |
 | `backups:create` | Sistema | Descargar una copia de seguridad completa (base de datos, fotos y archivos) |
 | `backups:restore` | Sistema | Restaurar una copia de seguridad (reemplaza todos los datos y archivos; antes se guarda un respaldo del estado actual) |
+| `exports:download` | Exportación | Exportar a Excel los animales, el registro sanitario, las montas y los partos (cada sección exige además su permiso de lectura) |
 | `notifications:settings` | Sistema | Configurar los controles (meses entre controles de peso y sanitarios, edad de destete) y la revisión diaria de avisos |
 
 **Permisos efectivos** = permisos de los roles activos del usuario + permisos otorgados individualmente − permisos denegados individualmente. Una denegación gana sobre lo que digan los roles. El frontend puede usar `effectivePermissions` (o `user.permissions` en el login) para mostrar u ocultar opciones.
@@ -182,6 +187,10 @@ Los define el sistema en [`permission-catalog.ts`](../src/modules/roles-permissi
 | `GET` | [`/auth/me`](#get-authme) | Autenticado |
 | `PUT` | [`/auth/me/password`](#put-authmepassword) | Autenticado |
 | `GET` | [`/auth/login-history`](#get-authlogin-history) | `audit:read` |
+| `GET` | [`/audit/activity`](#get-auditactivity) | `audit:read` |
+| `GET` | [`/audit/entities`](#get-auditentities) | `audit:read` |
+| `GET` | [`/exports/excel`](#get-exportsexcel) | `exports:download` + lectura de cada sección |
+| `GET` | [`/animals/:animalId/activity`](#get-animalsanimalidactivity) | `audit:read` |
 | `POST` | [`/users`](#post-users) | `users:create` |
 | `GET` | [`/users`](#get-users) | `users:read` |
 | `GET` | [`/users/:id`](#get-usersid) | `users:read` |
@@ -794,6 +803,7 @@ Se guardan sin espacios alrededor y en mayúsculas.
 | `entryDate` | `YYYY-MM-DD` | Fecha de ingreso, si se conoce. No anterior al nacimiento. Prohibida si nació en la cabaña. |
 | `sourceFarm` | string | Cabaña de procedencia (o centro de semen, en externos). Máx. 150. Prohibida si nació en la cabaña. |
 | `notes` | string | Observaciones. Máx. 1000. |
+| `price` | number | Precio (valorización) en bolivianos, `>= 0`, hasta 2 decimales. **Requiere `animals:set-price`**: sin ese permiso, enviar el campo devuelve `403`. No aplica a animales externos. Ver [Precio del animal](#precio-del-animal). |
 
 **\*** obligatorio.
 
@@ -853,6 +863,16 @@ Donante de semen (externo):
 | `409` | `DUPLICATE_IDENTIFIER`: arete o ABSID repetido. Se puede reintentar como caso especial. |
 | `409` | `DUPLICATE_EAR_TAG_AND_ABSID`: misma combinación arete + ABSID que otro animal. No se permite. |
 
+### Precio del animal
+
+Valorización del animal en bolivianos (Bs). Es un dato **reservado**:
+
+- **Verlo:** `animals:read-price` (o `animals:set-price`). Sin permiso, el campo `price` **no aparece** en la respuesta (ni en el listado ni en la ficha). Si aparece con `null`, el usuario puede verlo pero el animal no tiene precio.
+- **Cargarlo:** `animals:set-price`, en `POST /animals` o `PATCH /animals/:id` (además de `animals:create` o `animals:update`). Enviar `price` (aunque sea `null`) sin el permiso devuelve `403` "No tiene permiso para asignar el precio del animal" y no se guarda nada.
+- `>= 0`, hasta 2 decimales, máx. 9 999 999 999,99. `null` lo quita. Los animales externos no tienen precio (`400`).
+- **Historial:** cada cambio queda en el [registro de actividad](#registro-de-actividad). Quien tiene `audit:read` pero no los permisos de precio ve que el precio cambió, con el valor `"[oculto]"`.
+- El rol Administrador tiene los dos permisos. Para otros roles hay que asignarlos.
+
 ### `GET /animals`
 
 **Permiso:** `animals:read`. Paginado. Ordenado por arete y luego por nombre. Sin filtros devuelve los **animales de la cabaña**, con todos sus estados.
@@ -881,7 +901,7 @@ Donante de semen (externo):
 **Permiso:** `animals:update`. Solo cambian los campos enviados, con las mismas reglas que en el alta. Se valida el animal completo resultante.
 
 - Campos: `species`, `breedId`, `sex`, `entryOrigin`, `identifierException`. Poner `identifierException: false` borra el motivo y vuelve a validar que el arete y el ABSID no estén repetidos.
-- Anulables (envíe `null` para vaciarlos): `earTag`, `name`, `colorId`, `geneticCategory`, `absidRegistry`, `absidCertificateCode`, `externalRegistry`, `identifierExceptionReason`, `damId`, `sireId`, `birthDate`, `entryDate`, `sourceFarm`, `notes`. Vaciar un campo obligatorio, como el arete de un animal de la cabaña, devuelve `400`.
+- Anulables (envíe `null` para vaciarlos): `earTag`, `name`, `colorId`, `geneticCategory`, `absidRegistry`, `absidCertificateCode`, `externalRegistry`, `identifierExceptionReason`, `damId`, `sireId`, `birthDate`, `entryDate`, `sourceFarm`, `notes`, `price` (este último solo con `animals:set-price`; ver [Precio del animal](#precio-del-animal)). Vaciar un campo obligatorio, como el arete de un animal de la cabaña, devuelve `400`.
 - Si cambia `species`, envíe también un `breedId` de la nueva especie.
 - `isExternal` no se puede cambiar. El estado y el certificado tienen endpoints propios.
 - **Partos históricos:** si cambia la madre, el padre, la fecha de nacimiento, el origen o el sexo de una cría que nació en la cabaña, la API reubica la cría en el parto histórico de su madre y fecha (en la misma transacción):
@@ -899,6 +919,7 @@ Donante de semen (externo):
 | Código | Causa |
 | --- | --- |
 | `400` | Regla de negocio violada, o la nueva fecha de nacimiento no es anterior a la de su cría más antigua. |
+| `403` | Se envió `price` sin el permiso `animals:set-price`. |
 | `404` | Raza, color, madre o padre inexistente, o raza/color inactivo. |
 | `409` | La madre o el padre indicado es descendiente del animal (ciclo en la genealogía). |
 | `409` | Se intenta cambiar la especie o el sexo de un animal que ya tiene crías. |
@@ -993,9 +1014,9 @@ Usa el diseño del "Registro genealógico y certificado de origen" de la cabaña
 | Pesos | Al nacer, al destete, último pesaje y su fecha, más los 15 pesajes más recientes ordenados por fecha ascendente. |
 | Registro sanitario y de manejo | Los 15 eventos más recientes ordenados por fecha ascendente (fecha, tipo, producto, dosis y vía, motivo). |
 | Observaciones | Las notas del animal. |
-| Pie | Quién lo emitió (nombre y usuario), fecha y hora, número de certificado y paginación. |
+| Pie (desde la página 2) | "Emitido por" y el nombre de la cabaña (`FARM_NAME`), la paginación y el número de certificado. |
 
-**Número de certificado:** cada emisión genera uno nuevo, con el formato `SR-AAAAMMDD-XXXXXX` (fecha de emisión + 6 caracteres aleatorios). Va impreso en el PDF y en el header `X-Certificate-Number`. El certificado **no se guarda**: si se pide otra vez, sale con un número nuevo y los datos actualizados.
+**Número de certificado:** es **fijo por animal**. Se asigna en la primera emisión, con el formato `SR-AAAAMMDD-XXXXXX` (fecha de esa primera emisión + 6 caracteres aleatorios), y se repite en todas las emisiones siguientes. Va impreso en el PDF y en el header `X-Certificate-Number`. El PDF **no se guarda**: si se pide otra vez, sale con el **mismo número**, pero con los datos y la fecha de emisión actualizados.
 
 **Respuesta `200`:**
 
@@ -2067,6 +2088,140 @@ Descarta la restauración preparada y borra su copia temporal. **204.** `404` co
 
 ---
 
+## Registro de actividad
+
+Cada alta, modificación y borrado de datos queda registrado con el usuario, la fecha y hora, la IP y los valores anteriores y nuevos. También se registran algunas acciones que no cambian datos (eventos). No se registran las consultas.
+
+- **Lo guarda la base de datos** (triggers de PostgreSQL), en la misma transacción que el cambio: si la operación falla, no queda registro. Cubre todos los endpoints, incluidos los que se agreguen.
+- **No se puede modificar ni borrar.** Se guarda para siempre y entra en las copias de seguridad.
+- **Nunca guarda secretos.** La contraseña aparece como `"[oculto]"`. El precio del animal sí se guarda, pero solo lo ve quien tiene `animals:read-price` o `animals:set-price`; para los demás aparece como `"[oculto]"`. No se registran las sesiones, los intentos de inicio de sesión (están en [`/auth/login-history`](#get-authlogin-history)), las notificaciones ni las suscripciones push.
+- **Columnas que no se registran**, porque son técnicas: `created_at`, `created_by`, `updated_at`, `updated_by` y `deleted_at` (el borrado se ve en `action`). En usuarios tampoco se registran `failed_login_attempts`, `locked_until`, `last_login_at` ni `password_changed_at`; en fotos, los datos del archivo guardado (claves, tamaño, checksum).
+- **Restaurar una copia de seguridad** reemplaza también el registro por el del respaldo. Después de restaurar queda un evento `BACKUP_RESTORED`.
+- **La importación de planillas** (`pnpm import:animals`) queda como un solo evento `ANIMALS_IMPORTED`, no una fila por animal.
+- Los cambios hechos fuera de una petición (tareas programadas, migraciones, terminal) quedan con `source: "SYSTEM"` y `actorId: null`.
+
+### `GET /audit/activity`
+
+**Permiso:** `audit:read`. Paginado, del más reciente al más antiguo.
+
+| Query | Tipo | Descripción |
+| --- | --- | --- |
+| `userId` | uuid | Solo lo que hizo ese usuario. |
+| `entity` | texto | Tabla: un `code` de [`GET /audit/entities`](#get-auditentities). |
+| `recordId` | texto | Un registro (usar con `entity`). En las tablas sin id propio es la clave compuesta, por ejemplo `<permission_id>:<role_id>`. |
+| `animalId` | uuid | Todo lo relacionado con ese animal (igual que [`/animals/:animalId/activity`](#get-animalsanimalidactivity)). |
+| `action` | `CREATE` \| `UPDATE` \| `DELETE` \| `RESTORE` \| `EVENT` | Tipo de cambio. |
+| `event` | `CERTIFICATE_ISSUED` \| `BACKUP_DOWNLOADED` \| `BACKUP_RESTORED` \| `ANIMALS_IMPORTED` \| `DATA_EXPORTED` | Solo ese evento. |
+| `source` | `API` \| `SYSTEM` | Origen. |
+| `requestId` | uuid | Todos los cambios de una misma operación (por ejemplo, un parto con sus crías y el cambio de estado de la monta). |
+| `from`, `to` | `YYYY-MM-DD` | Rango de fechas, ambas incluidas, en la zona horaria de la cabaña (`FARM_TIME_ZONE`). |
+| `page`, `limit` | int | Paginación (por defecto 1 y 20, máximo 100). |
+
+Respuesta: el formato paginado de siempre, más `refs`.
+
+```json
+{
+  "items": [
+    {
+      "id": "1532",
+      "occurredAt": "2026-11-25T18:10:04.120Z",
+      "actorId": "a3b2...",
+      "actorUsername": "jperez",
+      "actorFullName": "Juan Pérez López",
+      "requestId": "9c1d...",
+      "ip": "192.168.1.20",
+      "source": "API",
+      "action": "UPDATE",
+      "entity": "animals",
+      "entityLabel": "Animal",
+      "recordId": "5e0f...",
+      "animalIds": ["5e0f..."],
+      "changes": {
+        "notes": ["Nota anterior", "Nota nueva"],
+        "breed_id": ["b1...", "b2..."]
+      },
+      "event": null,
+      "eventLabel": null,
+      "summary": null
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20,
+  "refs": {
+    "5e0f...": { "type": "animal", "label": "148 COQUETA" },
+    "b1...": { "type": "breed", "label": "Dorper" },
+    "b2...": { "type": "breed", "label": "Santa Inés" }
+  }
+}
+```
+
+| Campo | Descripción |
+| --- | --- |
+| `id` | Número correlativo, como texto. |
+| `actorId`, `actorUsername`, `actorFullName` | Quién lo hizo. `null` si fue el sistema o si es un intento sin sesión. |
+| `action` | `CREATE` alta, `UPDATE` modificación, `DELETE` borrado (lógico o físico), `RESTORE` recuperación de un borrado lógico, `EVENT` acción. |
+| `entity`, `entityLabel` | Tabla y su nombre en pantalla. |
+| `animalIds` | Animales relacionados: el animal mismo, la madre y el padre de una monta o un parto, las crías, el animal de un pesaje o registro sanitario. |
+| `changes` | Según `action`: **`CREATE`** y **`DELETE`** dan `{ "campo": valor }` (los datos ingresados o los del registro borrado; en un borrado lógico, `{}`); **`UPDATE`** da `{ "campo": [anterior, nuevo] }`, solo los campos que cambiaron; **`EVENT`** da los detalles de la acción. Los nombres son los de la base (`snake_case`). |
+| `event`, `eventLabel`, `summary` | Solo en los eventos: tipo, nombre y descripción ("Certificado N.º SR-20261125-06A2E1"). |
+| `refs` | Nombre de cada id que aparece en la página (en `changes`, `recordId` o `animalIds`): animales, razas, colores, áreas, productos veterinarios, roles, permisos y usuarios. Un id sin entrada en `refs` se muestra tal cual. |
+
+Errores: `400` si un filtro no es válido.
+
+### `GET /audit/entities`
+
+**Permiso:** `audit:read`. Tablas registradas, para el filtro: `[{ "code": "animals", "label": "Animal" }, ...]`. `system` agrupa los eventos que no son de un registro (copias de seguridad, importación).
+
+### `GET /animals/:animalId/activity`
+
+**Permiso:** `audit:read`. Historial de cambios de un animal: su ficha, fotos, pesajes, registro sanitario, cambios de categoría genética, justificaciones de controles, montas y diagnósticos (como madre o padre), partos y crías, y los certificados emitidos. Incluye los animales borrados.
+
+Query: `action`, `from`, `to`, `page`, `limit`, como en [`GET /audit/activity`](#get-auditactivity). Misma respuesta. `404` si el animal no existe.
+
+---
+
+## Exportación a Excel
+
+### `GET /exports/excel`
+
+**Permiso:** `exports:download`, y además el de lectura de cada sección que se exporta:
+
+| Sección (`sections`) | Hojas | Permiso de lectura |
+| --- | --- | --- |
+| `animals` | Animales | `animals:read` |
+| `health` | Registro sanitario | `health:read` |
+| `services` | Montas, Diagnósticos | `reproduction:read` |
+| `births` | Partos, Crías | `reproduction:read` |
+
+Descarga un archivo `.xlsx` (`santa-rosa-datos-AAAAMMDD-HHMM.xlsx`, con la hora de la cabaña). Siempre trae primero la hoja **Resumen**: quién lo generó, cuándo, los filtros y cuántos registros tiene cada hoja.
+
+| Query | Tipo | Descripción |
+| --- | --- | --- |
+| `sections` | texto | Secciones separadas por coma, p. ej. `animals,health`. Por defecto, **todas las que el usuario puede ver**. Pedir una sin su permiso de lectura devuelve `403`. |
+| `species` | `SHEEP` \| `GOAT` | Todas las hojas. Los eventos generales sin animal (limpieza de corral) solo salen sin este filtro. |
+| `from`, `to` | `YYYY-MM-DD` | Ambas incluidas. Filtran sanidad (fecha de aplicación), montas (fecha de la monta), diagnósticos (fecha del diagnóstico), partos y crías (fecha del parto). **No** filtran la hoja de animales. |
+| `status` | enum | Solo la hoja de animales. `ALIVE` para el inventario actual. |
+| `includeExternal` | `true` \| `false` | Solo la hoja de animales. Por defecto `false`: solo los animales de la cabaña. |
+
+Contenido:
+
+- **Animales:** identificación, raza, sexo, color, categoría genética, registros ABSID, nacimiento, madre y padre (arete y nombre), ingreso, estado, peso al nacer, al destete y último pesaje, caso especial y observaciones. La columna **Precio (Bs)** solo aparece con `animals:read-price` o `animals:set-price`.
+- **Registro sanitario:** fecha, tipo, animal, producto, lote, dosis, vía, enfermedad, quién lo aplicó, lugar, próxima dosis, retiro, costo y observaciones.
+- **Montas:** fechas, tipo, madre, padre, pajuela, parto esperado, estado, categoría esperada, consanguinidad, último diagnóstico, fecha del parto, aborto, muerte de la madre y observaciones. **Diagnósticos:** uno por fila.
+- **Partos:** fecha, madre, padre, monta, asistencia, histórico, crías y nacidas vivas. **Crías:** una por fila, con sexo, si nació viva, peso y el animal registrado.
+
+Los valores fijos salen en español (Ovino, Hembra, Vacunación...), las fechas como fechas de Excel y los números como números. Cada hoja tiene la primera fila fija y filtros. No incluye registros borrados.
+
+Cada descarga queda en el [registro de actividad](#registro-de-actividad) como evento `DATA_EXPORTED`, con las secciones, los filtros y la cantidad de filas.
+
+| Código | Causa |
+| --- | --- |
+| `400` | `sections` con un valor desconocido, fecha mal escrita o `from` posterior a `to`. |
+| `403` | Sin `exports:download`, o se pidió una sección sin su permiso de lectura. |
+
+---
+
 ## Sistema
 
 ### `GET /`
@@ -2211,7 +2366,8 @@ Se usa en los listados.
     "id": "5e1f...",
     "thumbnailUrl": "http://localhost:3900/santa-rosa/animals/...?X-Amz-Signature=...",
     "urlsExpireAt": "2026-10-24T12:45:00.000Z"
-  }
+  },
+  "price": 2500                                        // solo con animals:read-price o animals:set-price; null si no tiene
 }
 ```
 

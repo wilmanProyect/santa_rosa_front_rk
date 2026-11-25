@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { ExportExcelButton } from '@/features/exports'
 import { AnimalPicker, SPECIES_LABELS, type ParentRef, type Species } from '@/features/animals'
 import { Can } from '@/features/auth'
 import { getErrorMessage } from '@/shared/api/api-error'
@@ -49,11 +50,14 @@ export function BirthsPage() {
         title="Partos"
         description="Partos con sus crías. Los históricos se reconstruyeron de los animales ya cargados y no tienen monta."
         actions={
-          <Can permissions={[PERMISSIONS.REPRODUCTION_WRITE, PERMISSIONS.ANIMALS_CREATE]}>
-            <Button icon="plus" onClick={() => navigate(REPRODUCTION_ROUTES.newBirth)}>
-              Parto sin monta
-            </Button>
-          </Can>
+          <>
+            <ExportExcelButton />
+            <Can permissions={[PERMISSIONS.REPRODUCTION_WRITE, PERMISSIONS.ANIMALS_CREATE]}>
+              <Button icon="plus" onClick={() => navigate(REPRODUCTION_ROUTES.newBirth)}>
+                Parto sin monta
+              </Button>
+            </Can>
+          </>
         }
       />
 

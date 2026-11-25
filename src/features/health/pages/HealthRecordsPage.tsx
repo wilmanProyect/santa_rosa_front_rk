@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { ExportExcelButton } from '@/features/exports'
 import { Can } from '@/features/auth'
 import { PERMISSIONS } from '@/shared/config/permissions'
 import { Button, PageHeader } from '@/shared/ui'
@@ -19,14 +20,17 @@ export function HealthRecordsPage() {
         title="Registro sanitario"
         description="Vacunaciones, desparasitaciones, tratamientos y tareas de manejo, más los eventos generales como la limpieza de corrales."
         actions={
-          <Can permissions={[PERMISSIONS.HEALTH_WRITE]}>
-            <Button variant="secondary" icon="users" onClick={() => navigate(HEALTH_ROUTES.batch)}>
-              Aplicación masiva
-            </Button>
-            <Button icon="plus" onClick={() => setCreating(true)}>
-              Registrar evento
-            </Button>
-          </Can>
+          <>
+            <ExportExcelButton />
+            <Can permissions={[PERMISSIONS.HEALTH_WRITE]}>
+              <Button variant="secondary" icon="users" onClick={() => navigate(HEALTH_ROUTES.batch)}>
+                Aplicación masiva
+              </Button>
+              <Button icon="plus" onClick={() => setCreating(true)}>
+                Registrar evento
+              </Button>
+            </Can>
+          </>
         }
       />
       <HealthRecordsTable />

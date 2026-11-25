@@ -121,8 +121,8 @@ export const NAVIGATION: NavItem[] = [
   },
   {
     to: AUDIT_ROUTES.loginHistory,
-    label: 'Auditoría de accesos',
-    description: 'Historial de inicios de sesión exitosos y fallidos.',
+    label: 'Auditoría',
+    description: 'Inicios de sesión y registro de actividad: quién ingresó, modificó o borró cada dato.',
     icon: 'activity',
     group: 'Administración',
     placement: 'settings',

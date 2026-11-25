@@ -75,6 +75,7 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
   const goBack = useGoBack(backTo)
   const toast = useToast()
   const { can } = useAuth()
+  const canSetPrice = can(PERMISSIONS.ANIMALS_SET_PRICE)
   const create = useCreateAnimal()
   const update = useUpdateAnimal()
   const saving = create.isPending || update.isPending
@@ -144,14 +145,14 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
     }
 
     if (animal) {
-      const body = buildUpdateRequest(initial, form, isExternal)
+      const body = buildUpdateRequest(initial, form, isExternal, canSetPrice)
       if (Object.keys(body).length === 0) {
         goBack()
         return
       }
       update.mutate({ id: animal.id, body }, handlers)
     } else {
-      create.mutate(buildCreateRequest(form, isExternal), handlers)
+      create.mutate(buildCreateRequest(form, isExternal, canSetPrice), handlers)
     }
   }
 
@@ -481,6 +482,23 @@ function AnimalForm({ animal, isExternal }: { animal: AnimalDetail | null; isExt
                     />
                   </div>
                 )}
+              </div>
+            </Section>
+          )}
+
+          {/* Dato reservado: solo quien puede asignarlo ve el campo. */}
+          {canSetPrice && !isExternal && (
+            <Section title="Precio" description="Valorización del animal. Solo la ven los usuarios con permiso.">
+              <div className="grid-2">
+                <TextField
+                  label="Precio (Bs)"
+                  inputMode="decimal"
+                  placeholder="Ej.: 2500,00"
+                  hint="Hasta 2 decimales. Déjelo vacío si no tiene precio."
+                  maxLength={20}
+                  value={values.price}
+                  onChange={text('price')}
+                />
               </div>
             </Section>
           )}
